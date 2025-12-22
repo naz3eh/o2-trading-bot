@@ -100,6 +100,18 @@ export interface StrategyConfig {
   isActive: boolean
   createdAt: number
   updatedAt: number
+  
+  // Strategy-specific properties (optional, for backward compatibility)
+  // Balance Threshold Strategy
+  baseThreshold?: number
+  quoteThreshold?: number
+  
+  // Market Making Strategy
+  buyPriceAdjustmentPercent?: number
+  sellPriceAdjustmentPercent?: number
+  spreadPercent?: number // Deprecated, kept for backward compatibility
+  orderSizeUsd?: number // Deprecated, kept for backward compatibility
+  rebalanceThreshold?: number // Deprecated, kept for backward compatibility
 }
 
 export interface StrategyConfigStore {

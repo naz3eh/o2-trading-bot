@@ -18,13 +18,37 @@ export class BalanceThresholdStrategy extends Strategy {
 
   getDefaultConfig(): StrategyConfig {
     return {
-      type: 'balanceThreshold',
       marketId: '',
+      name: 'Balance Threshold Strategy',
       baseThreshold: 1000, // Base token units (after decimals)
       quoteThreshold: 100, // Quote token units (after decimals)
-      cycleIntervalMinMs: 5000,
-      cycleIntervalMaxMs: 10000,
-      maxPriceImpact: 0.5,
+      orderConfig: {
+        orderType: 'Spot',
+        priceMode: 'market',
+        priceOffsetPercent: 0,
+        maxSpreadPercent: 2.0,
+        side: 'Both',
+      },
+      positionSizing: {
+        sizeMode: 'percentageOfBalance',
+        balancePercentage: 100,
+        balanceType: 'both',
+        minOrderSizeUsd: 5,
+      },
+      orderManagement: {
+        trackFillPrices: false,
+        onlySellAboveBuyPrice: false,
+        maxOpenOrders: 2,
+        cancelAndReplace: false,
+      },
+      riskManagement: {},
+      timing: {
+        cycleIntervalMinMs: 5000,
+        cycleIntervalMaxMs: 10000,
+      },
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     }
   }
 
@@ -49,8 +73,8 @@ export class BalanceThresholdStrategy extends Strategy {
       const quoteBalance = new Decimal(balances.quote.unlocked)
         .div(10 ** market.quote.decimals)
 
-      const baseThreshold = config.baseThreshold || 0
-      const quoteThreshold = config.quoteThreshold || 0
+      const baseThreshold = config.baseThreshold ?? 0
+      const quoteThreshold = config.quoteThreshold ?? 0
 
       // Get current market price
       const ticker = await marketService.getTicker(market.market_id)
@@ -131,8 +155,8 @@ export class BalanceThresholdStrategy extends Strategy {
       }
 
       // Calculate next run time
-      const minInterval = config.cycleIntervalMinMs || 5000
-      const maxInterval = config.cycleIntervalMaxMs || 10000
+      const minInterval = config.timing.cycleIntervalMinMs || 5000
+      const maxInterval = config.timing.cycleIntervalMaxMs || 10000
       const nextRunAt = Date.now() + (minInterval + Math.random() * (maxInterval - minInterval))
 
       return {

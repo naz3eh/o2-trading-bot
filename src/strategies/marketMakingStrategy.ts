@@ -42,15 +42,41 @@ export class MarketMakingStrategy extends Strategy {
 
   getDefaultConfig(): StrategyConfig {
     return {
-      type: 'marketMaking',
       marketId: '',
+      name: 'Market Making Strategy',
       spreadPercent: 1.0, // 1% spread (deprecated, kept for backward compatibility)
       orderSizeUsd: 100, // $100 per order
       rebalanceThreshold: 0.2, // Rebalance when inventory exceeds 20% of order size
       buyPriceAdjustmentPercent: 0.1, // Buy 0.1% above market for quick fills
       sellPriceAdjustmentPercent: 0.1, // Sell 0.1% below market for quick fills
-      cycleIntervalMinMs: 3000, // 3 seconds
-      cycleIntervalMaxMs: 5000, // 5 seconds
+      orderConfig: {
+        orderType: 'Market',
+        priceMode: 'offsetFromMid',
+        priceOffsetPercent: 0.1, // 0.1% from mid price
+        maxSpreadPercent: 2.0,
+        side: 'Both',
+      },
+      positionSizing: {
+        sizeMode: 'fixedUsd',
+        fixedUsdAmount: 100,
+        balancePercentage: 100,
+        balanceType: 'both',
+        minOrderSizeUsd: 5,
+      },
+      orderManagement: {
+        trackFillPrices: true,
+        onlySellAboveBuyPrice: true,
+        maxOpenOrders: 2,
+        cancelAndReplace: true,
+      },
+      riskManagement: {},
+      timing: {
+        cycleIntervalMinMs: 3000, // 3 seconds
+        cycleIntervalMaxMs: 5000, // 5 seconds
+      },
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     }
   }
 
@@ -64,8 +90,8 @@ export class MarketMakingStrategy extends Strategy {
     
     // Calculate next run time at the start, before any async operations
     // This ensures the interval represents time between execution starts, not execution ends
-    const minInterval = config.cycleIntervalMinMs || 3000
-    const maxInterval = config.cycleIntervalMaxMs || 5000
+    const minInterval = config.timing.cycleIntervalMinMs || 3000
+    const maxInterval = config.timing.cycleIntervalMaxMs || 5000
     const executionStartTime = Date.now()
     const nextRunAt = executionStartTime + (minInterval + Math.random() * (maxInterval - minInterval))
     
@@ -128,8 +154,8 @@ export class MarketMakingStrategy extends Strategy {
       const tickerPriceScaled = new Decimal(ticker.last_price)
       const midPriceHuman = tickerPriceScaled.div(10 ** market.quote.decimals)
       
-      const buyPriceAdjustmentPercent = config.buyPriceAdjustmentPercent ?? 0.1 // Default 0.1% above market for quick fills
-      const sellPriceAdjustmentPercent = config.sellPriceAdjustmentPercent ?? 0.1 // Default 0.1% below market for quick fills
+      const buyPriceAdjustmentPercent = config.buyPriceAdjustmentPercent ?? config.orderConfig.priceOffsetPercent ?? 0.1 // Default 0.1% above market for quick fills
+      const sellPriceAdjustmentPercent = config.sellPriceAdjustmentPercent ?? config.orderConfig.priceOffsetPercent ?? 0.1 // Default 0.1% below market for quick fills
       const minOrderSizeUsd = 5.0  // O2 minimum order size
 
       // Calculate buy and sell prices in human-readable format

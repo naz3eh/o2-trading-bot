@@ -1,0 +1,126 @@
+.dashboard {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.dashboard-header h1 {
+  font-size: 24px;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.wallet-address {
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.disconnect-button {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.disconnect-button:hover {
+  background: var(--muted);
+}
+
+.dashboard-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.dashboard-tabs button {
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  padding: 16px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.dashboard-tabs button:hover {
+  color: var(--foreground);
+}
+
+.dashboard-tabs button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.dashboard-content {
+  padding: 32px;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.trading-controls {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.trading-controls h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.start-button,
+.stop-button {
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.start-button {
+  background: var(--success);
+  color: var(--primary-foreground);
+}
+
+.start-button:hover {
+  opacity: 0.9;
+}
+
+.stop-button {
+  background: var(--destructive);
+  color: var(--primary-foreground);
+}
+
+.stop-button:hover {
+  opacity: 0.9;
+}
+

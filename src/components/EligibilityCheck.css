@@ -1,0 +1,39 @@
+.eligibility-check {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.eligibility-check h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.status-badge.success {
+  background: var(--success);
+  color: var(--primary-foreground);
+  border: 1px solid var(--success);
+}
+
+.status-badge.error {
+  background: var(--destructive);
+  color: var(--primary-foreground);
+  border: 1px solid var(--destructive);
+}
+
+.note {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin-top: 8px;
+}
+

@@ -1,0 +1,118 @@
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-content h2 {
+  margin: 0 0 24px 0;
+  color: var(--foreground);
+  font-size: 24px;
+}
+
+.terms-content {
+  margin-bottom: 24px;
+  color: var(--foreground);
+  line-height: 1.6;
+}
+
+.terms-content p {
+  margin-bottom: 16px;
+}
+
+.terms-content ul {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.terms-content li {
+  margin-bottom: 8px;
+}
+
+.terms-content a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.terms-content a:hover {
+  text-decoration: underline;
+}
+
+.terms-checkbox {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--muted);
+  border-radius: 8px;
+}
+
+.terms-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  color: var(--foreground);
+}
+
+.terms-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.decline-button,
+.accept-button {
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.decline-button {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.decline-button:hover {
+  background: var(--muted);
+}
+
+.accept-button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.accept-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.accept-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

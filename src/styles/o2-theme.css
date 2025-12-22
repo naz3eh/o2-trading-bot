@@ -1,0 +1,69 @@
+/* o2 Theme Colors - Based on o2's globals.css */
+
+:root {
+  --radius: 0.5rem;
+  
+  /* Light Theme */
+  --background: #fff;
+  --foreground: oklch(37.3% 0.034 259.733);
+  --card: oklch(98.5% 0.002 247.839);
+  --card-foreground: oklch(37.3% 0.034 259.733);
+  --popover: oklch(98.5% 0.002 247.839);
+  --popover-foreground: oklch(37.3% 0.034 259.733);
+  --primary: oklch(62.3% 0.214 259.815);
+  --primary-foreground: #fff;
+  --secondary: oklch(92.8% 0.006 264.531);
+  --secondary-foreground: oklch(37.3% 0.034 259.733);
+  --muted: oklch(91.83% 0.00885 264.605);
+  --muted-foreground: oklch(55.1% 0.027 264.364);
+  --accent: oklch(37.3% 0.034 259.733);
+  --accent-foreground: oklch(98.5% 0.002 247.839);
+  --success: oklch(62.7% 0.194 149.214);
+  --destructive: oklch(58.6% 0.253 17.585);
+  --warning: oklch(64.6% 0.222 41.116);
+  --info: oklch(54.6% 0.245 262.881);
+  --border: oklch(96.7% 0.003 264.542);
+  --input: oklch(95.552% 0.00556 274.897);
+  --ring: oklch(92.8% 0.006 264.531);
+  --sidebar-border: oklch(87.2% 0.01 258.338);
+}
+
+.dark {
+  --background: oklch(0.1041 0.028 247.9);
+  --foreground: oklch(0.9851 0 0);
+  --card: oklch(0.1768 0.0159 261.52);
+  --card-foreground: oklch(0.9851 0 0);
+  --popover: oklch(0.1948 0.0112 260.66);
+  --popover-foreground: oklch(0.9851 0 0);
+  --primary: oklch(0.8429 0.080855 250.4655);
+  --primary-foreground: oklch(0.2103 0.0059 285.89);
+  --secondary: oklch(0.2298 0.0149 261.64);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.3197 0.0274 261.54);
+  --muted-foreground: oklch(0.718 0.0259 285.73);
+  --accent: oklch(0.9851 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --success: oklch(0.8124 0.1549 149.15);
+  --destructive: oklch(0.7225 0.172465 21.5355);
+  --warning: oklch(0.7486 0.1506 62.03);
+  --info: oklch(0.7029 0.1462 243.83);
+  --border: oklch(0.2527 0.0207 284.83);
+  --input: oklch(0.2298 0.0149 261.64);
+  --ring: oklch(0.556 0 0);
+  --sidebar-border: oklch(0.3727 0.0358 284.53);
+}
+
+/* Base styles */
+* {
+  border-color: var(--border);
+}
+
+html {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}

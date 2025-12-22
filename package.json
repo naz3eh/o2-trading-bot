@@ -1,0 +1,47 @@
+{
+  "name": "o2-trading-bot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@fuels/connectors": "^0.9.0",
+    "axios": "^1.12.2",
+    "decimal.js": "^10.2.1",
+    "dexie": "^4.0.1",
+    "ethers": "^6.15.0",
+    "fuels": "^0.102.0",
+    "immer": "^10.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.0.0",
+    "wagmi": "^2.0.0",
+    "ws": "^8.18.3",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.26.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "buffer": "^6.0.3",
+    "eslint": "^9.21.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.15.0",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.2",
+    "vite-plugin-node-polyfills": "^0.24.0"
+  },
+  "engines": {
+    "node": "^20.0.0 || ^22.0.0 || ^24.0.0"
+  }
+}

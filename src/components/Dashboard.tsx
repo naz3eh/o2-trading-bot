@@ -13,11 +13,12 @@ import MarketSelector from './MarketSelector'
 import StrategyConfig from './StrategyConfig'
 import OrderHistory from './OrderHistory'
 import TradeHistory from './TradeHistory'
-import Settings from './Settings'
 import Balances from './Balances'
-import TradingStatus from './TradingStatus'
+import TradeConsole from './TradeConsole'
+import CompetitionPanel from './CompetitionPanel'
 import { balanceService } from '../services/balanceService'
 import { TradingAccountBalances } from '../types/tradingAccount'
+import { filterMarkets } from '../utils/marketFilters'
 import './Dashboard.css'
 
 interface DashboardProps {
@@ -25,7 +26,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onDisconnect }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'markets' | 'strategies' | 'orders' | 'trades' | 'settings'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'trades'>('dashboard')
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [tradingAccount, setTradingAccount] = useState<any>(null)
   const [isEligible, setIsEligible] = useState<boolean | null>(null)
@@ -66,7 +67,7 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
 
         // Fetch markets (uses cache - auth flow already fetched)
         const marketsList = await marketService.fetchMarkets()
-        setMarkets(marketsList)
+        setMarkets(filterMarkets(marketsList))
 
         // Fetch balances if we have trading account and markets
         if (account && marketsList.length > 0) {
@@ -182,18 +183,6 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
           Dashboard
         </button>
         <button
-          className={activeTab === 'markets' ? 'active' : ''}
-          onClick={() => setActiveTab('markets')}
-        >
-          Markets
-        </button>
-        <button
-          className={activeTab === 'strategies' ? 'active' : ''}
-          onClick={() => setActiveTab('strategies')}
-        >
-          Strategies
-        </button>
-        <button
           className={activeTab === 'orders' ? 'active' : ''}
           onClick={() => setActiveTab('orders')}
         >
@@ -205,44 +194,78 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
         >
           Trades
         </button>
-        <button
-          className={activeTab === 'settings' ? 'active' : ''}
-          onClick={() => setActiveTab('settings')}
-        >
-          Settings
-        </button>
       </div>
 
       <div className="dashboard-content">
         {activeTab === 'dashboard' && (
-          <div className="dashboard-main">
-            <TradingAccount account={tradingAccount} />
-            <Balances balances={balances} loading={balancesLoading} />
-            <EligibilityCheck isEligible={isEligible} />
-            
-            <div className="trading-controls">
-              <h2>Trading Controls</h2>
-              {!isTrading ? (
-                <button onClick={handleStartTrading} className="start-button">
-                  Start Trading
-                </button>
-              ) : (
-                <button onClick={handleStopTrading} className="stop-button">
-                  Stop Trading
-                </button>
-              )}
+          <>
+            <CompetitionPanel walletAddress={walletAddress} />
+            <div className="dashboard-main">
+              <div className="dashboard-left-column">
+                <div className="controls-section">
+                  <TradingAccount account={tradingAccount} isEligible={isEligible} />
+                  
+                  <div className="trading-controls">
+                    <h2>Trading Controls</h2>
+                    {!isTrading ? (
+                      <button onClick={handleStartTrading} className="start-button">
+                        Start Trading
+                      </button>
+                    ) : (
+                      <button onClick={handleStopTrading} className="stop-button">
+                        Stop Trading
+                      </button>
+                    )}
+                    {isTrading && (
+                      <div className="trading-status-indicator">
+                        <span className="status-indicator active"></span>
+                        <span>Trading Active</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <TradeConsole isTrading={isTrading} />
+                </div>
+
+                <div className="markets-section">
+                  <div className="section-header">
+                    <h2>Available Markets</h2>
+                  </div>
+                  <div className="section-content">
+                    <MarketSelector markets={markets} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-right-column">
+                <div className="balances-section">
+                  <div className="section-header">
+                    <h2>Balances</h2>
+                    <a
+                      href="https://o2.app"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="deposit-link"
+                    >
+                      Deposit Funds on o2.app →
+                    </a>
+                  </div>
+                  <div className="section-content">
+                    <Balances balances={balances} loading={balancesLoading} />
+                  </div>
+                </div>
+
+                <div className="strategy-settings-section">
+                  <div className="section-header">
+                    <h2>Strategy Configuration</h2>
+                  </div>
+                  <div className="section-content">
+                    <StrategyConfig markets={markets} />
+                  </div>
+                </div>
+              </div>
             </div>
-
-            {isTrading && <TradingStatus isTrading={isTrading} />}
-          </div>
-        )}
-
-        {activeTab === 'markets' && (
-          <MarketSelector markets={markets} />
-        )}
-
-        {activeTab === 'strategies' && (
-          <StrategyConfig markets={markets} />
+          </>
         )}
 
         {activeTab === 'orders' && (
@@ -251,10 +274,6 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
 
         {activeTab === 'trades' && (
           <TradeHistory />
-        )}
-
-        {activeTab === 'settings' && (
-          <Settings />
         )}
       </div>
       </div>

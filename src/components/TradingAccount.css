@@ -1,46 +1,117 @@
 .trading-account {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
+  width: 100%;
+  padding: 0;
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .trading-account h2 {
-  margin: 0 0 16px 0;
+  margin: 0 0 4px 0;
   font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
 }
 
-.account-info {
+.account-ids {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 
-.info-row {
+.account-id-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 
-.label {
+.account-id-label {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.account-id-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  transition: color 0.2s;
+}
+
+.account-id-text.clickable {
+  cursor: pointer;
+}
+
+.account-id-text.clickable:hover {
+  color: var(--foreground);
+}
+
+.copy-icon-inline {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.account-id-text.clickable:hover .copy-icon-inline {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.loading-text {
   color: var(--muted-foreground);
   font-size: 14px;
+  margin: 0;
 }
 
-.value {
-  color: var(--foreground);
-  font-size: 14px;
-  font-family: monospace;
-}
+
 
 .deposit-link {
-  margin-top: 16px;
+  margin-top: 8px;
   color: var(--primary);
   text-decoration: none;
   font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+  max-width: fit-content;
 }
 
 .deposit-link:hover {
+  color: var(--primary);
   text-decoration: underline;
 }
+
+.whitelist-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+
+.whitelist-badge.whitelisted {
+  background: transparent;
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.whitelist-badge.not-whitelisted {
+  background: transparent;
+  color: var(--muted-foreground);
+  border-color: var(--border);
+}
+
 

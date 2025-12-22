@@ -1,4 +1,6 @@
 import { TradingAccountBalances, Balance } from '../types/tradingAccount'
+import { HIDE_USDT_IN_UI } from '../constants/o2Constants'
+import './Balances.css'
 
 interface BalancesProps {
   balances: TradingAccountBalances | null
@@ -9,7 +11,6 @@ export default function Balances({ balances, loading }: BalancesProps) {
   if (loading) {
     return (
       <div className="balances">
-        <h2>Balances</h2>
         <p>Loading balances...</p>
       </div>
     )
@@ -18,7 +19,6 @@ export default function Balances({ balances, loading }: BalancesProps) {
   if (!balances || balances.balances.length === 0) {
     return (
       <div className="balances">
-        <h2>Balances</h2>
         <p>No balances found</p>
       </div>
     )
@@ -54,21 +54,20 @@ export default function Balances({ balances, loading }: BalancesProps) {
 
   return (
     <div className="balances">
-      <h2>Balances</h2>
       <table className="balances-table">
         <thead>
           <tr>
             <th>Asset</th>
-            <th>Total Balance</th>
             <th>Available</th>
             <th>Locked</th>
           </tr>
         </thead>
         <tbody>
-          {balances.balances.map((balance: Balance) => (
+          {balances.balances
+            .filter((balance) => !HIDE_USDT_IN_UI || balance.assetSymbol !== 'USDT')
+            .map((balance: Balance) => (
             <tr key={balance.assetId}>
               <td>{balance.assetSymbol}</td>
-              <td className="tabular-nums">{formatBalance(balance.total, balance.decimals)}</td>
               <td className="tabular-nums">{formatBalance(balance.unlocked, balance.decimals)}</td>
               <td className="tabular-nums">{formatBalance(balance.locked, balance.decimals)}</td>
             </tr>

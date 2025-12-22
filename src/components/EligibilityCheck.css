@@ -1,39 +1,45 @@
 .eligibility-check {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
+  width: 100%;
+  padding: 0;
 }
 
 .eligibility-check h2 {
   margin: 0 0 16px 0;
   font-size: 18px;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
+  color: var(--foreground);
 }
 
-.status-badge.success {
+.whitelist-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  max-width: fit-content;
+  transition: all 0.2s ease;
+}
+
+.whitelist-tag.whitelisted {
   background: var(--success);
   color: var(--primary-foreground);
   border: 1px solid var(--success);
 }
 
-.status-badge.error {
-  background: var(--destructive);
-  color: var(--primary-foreground);
-  border: 1px solid var(--destructive);
+.whitelist-tag.not-whitelisted {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
 }
 
-.note {
+.whitelist-tag.loading {
+  background: var(--muted);
   color: var(--muted-foreground);
-  font-size: 12px;
-  margin-top: 8px;
+  border: 1px solid var(--border);
+  text-transform: none;
+  letter-spacing: normal;
 }
 

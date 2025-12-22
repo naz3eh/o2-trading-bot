@@ -1,0 +1,643 @@
+.strategy-config {
+  width: 100%;
+  padding: 0;
+}
+
+.strategy-config-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.configs-list {
+  width: 100%;
+}
+
+.configs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Config Card - Matching MarketSelector style */
+.config-card {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.config-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.config-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.config-card-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.market-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.base-symbol {
+  color: var(--primary);
+}
+
+.separator {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.quote-symbol {
+  color: var(--foreground);
+}
+
+.strategy-name {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-badge.active {
+  background: var(--success);
+  color: var(--primary-foreground);
+}
+
+.status-badge.inactive {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.config-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.config-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.summary-label {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.summary-value {
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.summary-separator {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.config-stats {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.stat-value {
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+}
+
+.config-card-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-action {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.btn-action:hover {
+  background: var(--muted);
+  transform: translateY(-1px);
+}
+
+.btn-edit {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.btn-activate {
+  background: var(--success);
+  color: var(--primary-foreground);
+  border-color: var(--success);
+}
+
+.btn-activate:hover {
+  opacity: 0.9;
+}
+
+.btn-deactivate {
+  background: var(--warning);
+  color: var(--primary-foreground);
+  border-color: var(--warning);
+}
+
+.btn-deactivate:hover {
+  opacity: 0.9;
+}
+
+.btn-delete {
+  background: var(--destructive);
+  color: var(--primary-foreground);
+  border-color: var(--destructive);
+}
+
+.btn-delete:hover {
+  opacity: 0.9;
+}
+
+/* Empty State */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted-foreground);
+  background: var(--background);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.empty-state p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+.empty-state .btn {
+  margin-top: 8px;
+}
+
+/* Modal/Dialog Styles */
+.config-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.config-modal-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.config-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.config-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.config-modal-close {
+  background: none;
+  border: none;
+  color: var(--muted-foreground);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.config-modal-close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* Modal Body */
+.config-modal-body {
+  padding: 24px;
+  max-height: calc(90vh - 80px);
+  overflow-y: auto;
+}
+
+/* Form Styles */
+.strategy-config-form {
+  padding: 0;
+}
+
+.form-section {
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.section-header:hover {
+  background: var(--muted);
+  filter: brightness(0.95);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.section-toggle {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--muted-foreground);
+}
+
+.section-content {
+  padding: 16px;
+  background: var(--card);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group .checkbox-option {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form-group small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Custom Radio Buttons - Following o2 UI Guidelines */
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: normal;
+  position: relative;
+}
+
+.radio-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  width: 0;
+  height: 0;
+}
+
+.radio-custom {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 50%;
+  background: var(--input);
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.radio-option:hover .radio-custom {
+  border-color: var(--muted-foreground);
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-custom {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-foreground);
+}
+
+.radio-option input[type="radio"]:disabled ~ .radio-custom {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-option input[type="radio"]:disabled ~ .radio-label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-label {
+  color: var(--foreground);
+  font-size: 13px;
+  user-select: none;
+}
+
+/* Custom Checkboxes - Following o2 UI Guidelines */
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: normal;
+  position: relative;
+}
+
+.checkbox-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checkbox-option input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 2px;
+  background: var(--input);
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.checkbox-option:hover:not(.disabled) .checkbox-custom {
+  border-color: var(--muted-foreground);
+}
+
+.checkbox-option input[type="checkbox"]:checked ~ .checkbox-custom {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.checkbox-option input[type="checkbox"]:checked ~ .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--primary-foreground);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-option input[type="checkbox"]:disabled ~ .checkbox-custom {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox-option input[type="checkbox"]:disabled ~ .checkbox-label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox-label {
+  color: var(--foreground);
+  font-size: 13px;
+  user-select: none;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.form-actions-right {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  background: var(--secondary);
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: var(--muted);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary);
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.btn-secondary:hover {
+  background: var(--muted);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .config-modal-content {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .config-card-actions {
+    flex-direction: column;
+  }
+
+  .btn-action {
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions-right {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .form-actions-right .btn {
+    width: 100%;
+  }
+}

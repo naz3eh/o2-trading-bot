@@ -1,3 +1,5 @@
+import './EligibilityCheck.css'
+
 interface EligibilityCheckProps {
   isEligible: boolean | null
 }
@@ -7,7 +9,7 @@ export default function EligibilityCheck({ isEligible }: EligibilityCheckProps) 
     return (
       <div className="eligibility-check">
         <h2>Eligibility Status</h2>
-        <p>Checking...</p>
+        <div className="whitelist-tag loading">Checking...</div>
       </div>
     )
   }
@@ -15,18 +17,9 @@ export default function EligibilityCheck({ isEligible }: EligibilityCheckProps) 
   return (
     <div className="eligibility-check">
       <h2>Eligibility Status</h2>
-      {isEligible ? (
-        <div className="eligible">
-          <span className="status-badge success">✓ Eligible to Trade</span>
-          <p>You can start trading on o2 Exchange.</p>
+      <div className={`whitelist-tag ${isEligible ? 'whitelisted' : 'not-whitelisted'}`}>
+        {isEligible ? 'Whitelisted' : 'Not Whitelisted'}
         </div>
-      ) : (
-        <div className="not-eligible">
-          <span className="status-badge error">✗ Not Eligible</span>
-          <p>You need to be whitelisted or have an invite code to trade.</p>
-          <p className="note">Visit o2.app to get access.</p>
-        </div>
-      )}
     </div>
   )
 }

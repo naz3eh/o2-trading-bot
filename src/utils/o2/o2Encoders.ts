@@ -110,6 +110,9 @@ function getOption(args?: Uint8Array) {
 function createOrderArgs(createOrder: CreateOrderAction, bookConfig: OrderBookConfig, gasLimit: BN) {
   let order_type: OrderTypeInput;
   switch (createOrder.CreateOrder.order_type) {
+    case OrderType.Limit:
+      order_type = { Limit: [] };
+      break;
     case OrderType.Spot:
       order_type = { Spot: undefined };
       break;
@@ -122,9 +125,8 @@ function createOrderArgs(createOrder: CreateOrderAction, bookConfig: OrderBookCo
     case OrderType.PostOnly:
       order_type = { PostOnly: undefined };
       break;
-    case OrderType.Limit:
     default:
-      throw new Error('unsupported order type');
+      throw new Error(`Unsupported order type: ${createOrder.CreateOrder.order_type}`);
   }
 
   return {

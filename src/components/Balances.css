@@ -1,0 +1,80 @@
+.balances {
+  width: 100%;
+}
+
+.deposit-link {
+  display: inline-block;
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.deposit-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.balances-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.balances-table thead {
+  border-bottom: 1px solid var(--border);
+}
+
+.balances-table th {
+  text-align: left;
+  padding: 12px 16px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.balances-table th:nth-child(2),
+.balances-table th:nth-child(3) {
+  text-align: right;
+}
+
+.balances-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s ease;
+}
+
+.balances-table tbody tr:hover {
+  background-color: var(--muted);
+}
+
+.balances-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.balances-table td {
+  padding: 14px 16px;
+  color: var(--foreground);
+}
+
+.balances-table td:first-child {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.balances-table td.tabular-nums {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  text-align: right;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.balances > p {
+  color: var(--muted-foreground);
+  margin: 0;
+  padding: 20px 0;
+  text-align: center;
+}
+

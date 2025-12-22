@@ -1,10 +1,11 @@
-import { Strategy } from '../strategies/baseStrategy'
 import { Market } from '../types/market'
 import { StrategyConfig, StrategyExecutionResult } from '../types/strategy'
-import { strategyService } from './strategyService'
+import { unifiedStrategyExecutor } from './unifiedStrategyExecutor'
 import { marketService } from './marketService'
 import { orderService } from './orderService'
 import { tradeHistoryService } from './tradeHistoryService'
+import { orderFulfillmentService } from './orderFulfillmentService'
+import { orderFulfillmentPolling } from './orderFulfillmentPolling'
 import { db } from './dbService'
 import { Trade } from '../types/trade'
 
@@ -13,7 +14,6 @@ type StatusCallback = (message: string, type: 'info' | 'success' | 'error' | 'wa
 
 interface MarketConfig {
   market: Market
-  strategy: Strategy
   config: StrategyConfig
   nextRunAt: number
   intervalId?: number
@@ -93,16 +93,14 @@ class TradingEngine {
         continue
       }
 
-      const strategy = strategyService.createStrategy(storedConfig.strategyType)
       const marketConfig: MarketConfig = {
         market,
-        strategy,
         config: storedConfig.config,
         nextRunAt: Date.now() + this.getJitteredDelay(storedConfig.config),
       }
 
       this.marketConfigs.set(storedConfig.marketId, marketConfig)
-      console.log(`[TradingEngine] Market config initialized: ${storedConfig.marketId} (${storedConfig.strategyType})`)
+      console.log(`[TradingEngine] Market config initialized: ${storedConfig.marketId}`)
     }
 
     console.log(`[TradingEngine] Starting trading loops for ${this.marketConfigs.size} market(s)...`)
@@ -112,6 +110,11 @@ class TradingEngine {
       // Set nextRunAt to now for immediate execution (better UX)
       marketConfig.nextRunAt = Date.now()
       this.startMarketTrading(marketId, marketConfig)
+      
+      // Start order fulfillment polling if fill tracking is enabled
+      if (marketConfig.config.orderManagement.trackFillPrices && this.ownerAddress) {
+        orderFulfillmentPolling.startPolling(marketId, this.ownerAddress)
+      }
     }
     
     console.log('[TradingEngine] Trading engine started successfully')
@@ -124,6 +127,9 @@ class TradingEngine {
 
     this.isRunning = false
     this.transactionLock = false
+
+    // Stop all order fulfillment polling
+    orderFulfillmentPolling.stopAll()
 
     // Clear all intervals
     for (const marketConfig of this.marketConfigs.values()) {
@@ -184,10 +190,8 @@ class TradingEngine {
       return
     }
 
-    const strategy = strategyService.createStrategy(storedConfig.strategyType)
     const marketConfig: MarketConfig = {
       market,
-      strategy,
       config: storedConfig.config,
       nextRunAt: Date.now() + this.getJitteredDelay(storedConfig.config),
     }
@@ -217,8 +221,13 @@ class TradingEngine {
         console.log(`[TradingEngine] Executing strategy for ${marketConfig.market.market_id}`)
         this.emitStatus(`[${marketConfig.market.market_id}] Executing strategy...`, 'info')
 
-        // Execute strategy (ownerAddress is already normalized in initialize)
-        const result = await (marketConfig.strategy.execute as any)(
+        // Track order fills before executing new strategy
+        if (marketConfig.config.orderManagement.trackFillPrices) {
+          await this.trackOrderFills(marketConfig.market.market_id, this.ownerAddress!)
+        }
+
+        // Execute unified strategy executor
+        const result = await unifiedStrategyExecutor.execute(
           marketConfig.market,
           marketConfig.config,
           this.ownerAddress!,
@@ -275,6 +284,14 @@ class TradingEngine {
           this.emitStatus(`[${marketConfig.market.market_id}] No orders placed (check balances)`, 'info')
         }
 
+        // Update config in database if fill prices were tracked
+        if (marketConfig.config.orderManagement.trackFillPrices && result.executed) {
+          await db.strategyConfigs.update(marketConfig.market.market_id, {
+            config: marketConfig.config,
+            updatedAt: Date.now(),
+          })
+        }
+
         // Schedule next execution
         const nextRunAt = result.nextRunAt || Date.now() + this.getJitteredDelay(marketConfig.config)
         marketConfig.nextRunAt = nextRunAt
@@ -305,9 +322,51 @@ class TradingEngine {
   }
 
   private getJitteredDelay(config: StrategyConfig): number {
-    const min = config.cycleIntervalMinMs || 3000
-    const max = config.cycleIntervalMaxMs || 5000
+    const min = config.timing.cycleIntervalMinMs
+    const max = config.timing.cycleIntervalMaxMs
     return min + Math.floor(Math.random() * (max - min + 1))
+  }
+
+  /**
+   * Track order fills and update config
+   */
+  private async trackOrderFills(marketId: string, ownerAddress: string): Promise<void> {
+    try {
+      const fills = await orderFulfillmentService.trackOrderFills(marketId, ownerAddress)
+      
+      if (fills.size > 0) {
+        const storedConfig = await db.strategyConfigs.get(marketId)
+        if (storedConfig) {
+          let updatedConfig = storedConfig.config
+          
+          const market = await marketService.getMarket(marketId)
+          if (market) {
+            for (const [orderId, { order, previousFilledQuantity }] of fills) {
+              updatedConfig = await orderFulfillmentService.updateFillPrices(
+                updatedConfig,
+                order,
+                market,
+                previousFilledQuantity
+              )
+            }
+          }
+          
+          // Update config in database
+          await db.strategyConfigs.update(marketId, {
+            config: updatedConfig,
+            updatedAt: Date.now(),
+          })
+          
+          // Update in-memory config
+          const marketConfig = this.marketConfigs.get(marketId)
+          if (marketConfig) {
+            marketConfig.config = updatedConfig
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[TradingEngine] Error tracking order fills:', error)
+    }
   }
 }
 

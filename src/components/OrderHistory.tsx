@@ -3,6 +3,7 @@ import { Order } from '../types/order'
 import { orderService } from '../services/orderService'
 import { walletService } from '../services/walletService'
 import { tradingEngine } from '../services/tradingEngine'
+import './OrderHistory.css'
 
 export default function OrderHistory() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -61,16 +62,37 @@ export default function OrderHistory() {
     }
   }, [])
 
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 8)}...${address.slice(-6)}`
+  }
+
+  const getStatusClass = (status: string) => {
+    const statusLower = status.toLowerCase()
+    if (statusLower.includes('filled') || statusLower === 'filled') return 'filled'
+    if (statusLower.includes('completed')) return 'filled'
+    if (statusLower.includes('cancelled') || statusLower === 'cancelled') return 'cancelled'
+    if (statusLower.includes('failed') || statusLower === 'failed') return 'cancelled'
+    if (statusLower.includes('partial') || statusLower === 'partially_filled') return 'partial'
+    if (statusLower === 'open' || statusLower === 'pending') return 'open'
+    return 'open'
+  }
+
   if (loading) {
-    return <div>Loading orders...</div>
+    return (
+      <div className="order-history">
+        <h2>Open Orders</h2>
+        <div className="loading">Loading orders...</div>
+      </div>
+    )
   }
 
   return (
     <div className="order-history">
       <h2>Open Orders</h2>
       {orders.length === 0 ? (
-        <p>No open orders</p>
+        <div className="empty-state">No open orders</div>
       ) : (
+        <div className="orders-table-container">
         <table className="orders-table">
           <thead>
             <tr>
@@ -86,17 +108,26 @@ export default function OrderHistory() {
           <tbody>
             {orders.map((order) => (
               <tr key={order.order_id}>
-                <td>{order.order_id.slice(0, 16)}...</td>
-                <td>{order.market_id.slice(0, 16)}...</td>
-                <td>{order.side}</td>
+                  <td title={order.order_id}>{formatAddress(order.order_id)}</td>
+                  <td title={order.market_id}>{formatAddress(order.market_id)}</td>
+                  <td>
+                    <span className={`side-badge ${order.side.toLowerCase()}`}>
+                      {order.side}
+                    </span>
+                  </td>
                 <td>{order.price}</td>
                 <td>{order.quantity}</td>
-                <td>{order.filled_quantity}</td>
-                <td>{order.status}</td>
+                  <td>{order.filled_quantity || '0'}</td>
+                  <td>
+                    <span className={`status-badge ${getStatusClass(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )

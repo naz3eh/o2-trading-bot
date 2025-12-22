@@ -1,0 +1,222 @@
+.leaderboard-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.leaderboard-modal-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.leaderboard-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.leaderboard-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.leaderboard-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.leaderboard-modal-close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.leaderboard-reward-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.reward-label {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.reward-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.leaderboard-table-container {
+  overflow-y: auto;
+  flex: 1;
+  padding: 12px 20px;
+}
+
+/* Custom scrollbar styling */
+.leaderboard-table-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.leaderboard-table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.leaderboard-table-container::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+  opacity: 0.3;
+}
+
+.leaderboard-table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+/* Firefox scrollbar */
+.leaderboard-table-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.leaderboard-table thead {
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+
+.leaderboard-table th {
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--muted-foreground);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leaderboard-table th:nth-child(3),
+.leaderboard-table th:nth-child(4),
+.leaderboard-table th:nth-child(5) {
+  text-align: right;
+}
+
+.leaderboard-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s ease;
+}
+
+.leaderboard-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-table tbody tr:hover {
+  background: var(--muted);
+}
+
+.leaderboard-table tbody tr.current-user-row {
+  background: var(--muted);
+  border-left: 3px solid var(--primary);
+}
+
+.leaderboard-table td {
+  padding: 8px 12px;
+  color: var(--foreground);
+}
+
+.rank-cell {
+  font-weight: 700;
+  color: var(--primary);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+}
+
+.address-cell {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.numeric-cell {
+  text-align: right;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+}
+
+.numeric-cell.positive {
+  color: var(--success);
+}
+
+.numeric-cell.negative {
+  color: var(--destructive);
+}
+
+@media (max-width: 768px) {
+  .leaderboard-modal-content {
+    max-width: 100%;
+    max-height: 95vh;
+  }
+
+  .leaderboard-modal-header {
+    padding: 16px;
+  }
+
+  .leaderboard-modal-header h2 {
+    font-size: 20px;
+  }
+
+  .leaderboard-table-container {
+    padding: 16px;
+  }
+
+  .leaderboard-table {
+    font-size: 12px;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 8px 12px;
+  }
+}
+

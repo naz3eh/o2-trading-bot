@@ -2,18 +2,70 @@ import { useState, useEffect, useRef } from 'react'
 import { Trade } from '../types/trade'
 import { tradeHistoryService } from '../services/tradeHistoryService'
 import { tradingEngine } from '../services/tradingEngine'
+import { marketService } from '../services/marketService'
+import './TradeHistory.css'
 
 export default function TradeHistory() {
   const [trades, setTrades] = useState<Trade[]>([])
+  const [markets, setMarkets] = useState<Map<string, any>>(new Map())
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadTrades = async () => {
     const recentTrades = await tradeHistoryService.getRecentTrades(50)
     setTrades(recentTrades)
   }
+  
+  const formatValue = (value: string, decimals: number = 18): string => {
+    try {
+      const bigIntValue = BigInt(value || '0')
+      const divisor = BigInt(10 ** decimals)
+      
+      const integerPart = bigIntValue / divisor
+      const fractionalPart = bigIntValue % divisor
+      
+      const fractionalStr = fractionalPart.toString().padStart(decimals, '0')
+      const fractionalTrimmed = fractionalStr.replace(/0+$/, '')
+      
+      if (fractionalTrimmed === '') {
+        return integerPart.toString()
+      }
+      
+      // Format with appropriate decimal places (up to 8 for display)
+      const displayDecimals = Math.min(fractionalTrimmed.length, 8)
+      return `${integerPart}.${fractionalTrimmed.slice(0, displayDecimals)}`
+    } catch (error) {
+      console.error('Error formatting value:', error, value)
+      return value
+    }
+  }
+  
+  const formatPrice = (price: string, marketId: string): string => {
+    const market = markets.get(marketId)
+    // Price is typically in quote token decimals
+    const decimals = market?.quote?.decimals || 18
+    return formatValue(price, decimals)
+  }
+  
+  const formatQuantity = (quantity: string, marketId: string, side: 'Buy' | 'Sell'): string => {
+    const market = markets.get(marketId)
+    // Quantity is in base token decimals
+    const decimals = market?.base?.decimals || 18
+    return formatValue(quantity, decimals)
+  }
 
   useEffect(() => {
-    // Load trades initially
+    // Load markets first, then trades
+    const loadMarkets = async () => {
+      try {
+        const marketsList = await marketService.fetchMarkets()
+        const marketsMap = new Map(marketsList.map(m => [m.market_id, m]))
+        setMarkets(marketsMap)
+      } catch (error) {
+        console.error('Failed to load markets for formatting', error)
+      }
+    }
+    
+    loadMarkets()
     loadTrades()
 
     // Set up auto-refresh when trading is active
@@ -50,12 +102,17 @@ export default function TradeHistory() {
     }
   }, [])
 
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 8)}...${address.slice(-6)}`
+  }
+
   return (
     <div className="trade-history">
       <h2>Trade History</h2>
       {trades.length === 0 ? (
-        <p>No trades yet</p>
+        <div className="empty-state">No trades yet</div>
       ) : (
+        <div className="trades-table-container">
         <table className="trades-table">
           <thead>
             <tr>
@@ -69,19 +126,26 @@ export default function TradeHistory() {
           </thead>
           <tbody>
             {trades.map((trade, index) => (
-              <tr key={trade.id || index}>
+                <tr key={trade.id || index} className={trade.success ? 'success' : 'failed'}>
                 <td>{new Date(trade.timestamp).toLocaleString()}</td>
-                <td>{trade.marketId.slice(0, 16)}...</td>
-                <td>{trade.side}</td>
-                <td>{trade.price}</td>
-                <td>{trade.quantity}</td>
-                <td className={trade.success ? 'success' : 'error'}>
+                  <td title={trade.marketId}>{formatAddress(trade.marketId)}</td>
+                  <td>
+                    <span className={`direction-badge ${trade.side.toLowerCase()}`}>
+                      {trade.side}
+                    </span>
+                  </td>
+                  <td>{formatPrice(trade.price, trade.marketId)}</td>
+                  <td>{formatQuantity(trade.quantity, trade.marketId, trade.side)}</td>
+                  <td>
+                    <span className={`status-badge ${trade.success ? 'success' : 'failed'}`}>
                   {trade.success ? 'Success' : 'Failed'}
+                    </span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )

@@ -219,7 +219,8 @@ class TradingEngine {
 
       try {
         console.log(`[TradingEngine] Executing strategy for ${marketConfig.market.market_id}`)
-        this.emitStatus(`[${marketConfig.market.market_id}] Executing strategy...`, 'info')
+        const pair = `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+        this.emitStatus(`${pair}: Executing strategy...`, 'info')
 
         // Track order fills before executing new strategy
         if (marketConfig.config.orderManagement.trackFillPrices) {
@@ -238,7 +239,8 @@ class TradingEngine {
 
         if (!result) {
           console.warn(`[TradingEngine] Strategy returned no result for ${marketId}`)
-          this.emitStatus(`[${marketConfig.market.market_id}] Strategy returned no result`, 'warning')
+          const pair = `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+          this.emitStatus(`${pair}: Strategy returned no result`, 'warning')
           // Reschedule
           marketConfig.nextRunAt = Date.now() + 10000
           if (this.isRunning) {
@@ -265,14 +267,24 @@ class TradingEngine {
               }
 
               await tradeHistoryService.addTrade(trade)
+              
+              // Format success message with human-readable values
+              const pair = orderExec.marketPair || `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+              const amount = orderExec.quantityHuman || 'N/A'
+              const asset = marketConfig.market.base.symbol
+              const price = orderExec.priceHuman ? `$${orderExec.priceHuman}` : 'N/A'
               this.emitStatus(
-                `[${marketConfig.market.market_id}] ${orderExec.side} order placed: ${orderExec.orderId}`,
+                `${pair}: ${orderExec.side} ${amount} ${asset} @ ${price}`,
                 'success'
               )
             } else {
               console.error(`[TradingEngine] Order failed: ${orderExec.side} - ${orderExec.error}`)
+              
+              // Format error message with market pair
+              const pair = orderExec.marketPair || `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+              const errorMsg = orderExec.error || 'Unknown error'
               this.emitStatus(
-                `[${marketConfig.market.market_id}] ${orderExec.side} order failed: ${orderExec.error || 'Unknown error'}`,
+                `${pair}: ${orderExec.side} order failed - ${errorMsg}`,
                 'error'
               )
             }
@@ -281,7 +293,8 @@ class TradingEngine {
           this.notifyTradeComplete()
         } else {
           console.log(`[TradingEngine] Strategy executed but no orders placed (executed: ${result.executed}, orders: ${result.orders?.length || 0})`)
-          this.emitStatus(`[${marketConfig.market.market_id}] No orders placed (check balances)`, 'info')
+          const pair = `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+          this.emitStatus(`${pair}: No orders placed (check balances)`, 'info')
         }
 
         // Update config in database if fill prices were tracked

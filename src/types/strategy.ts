@@ -177,10 +177,14 @@ export interface OrderExecution {
   orderId: string
   side: 'Buy' | 'Sell'
   success: boolean
-  price?: string
-  quantity?: string
+  price?: string // Scaled price (for API)
+  quantity?: string // Scaled quantity (for API)
   filledQuantity?: string
   error?: string
+  // Human-readable values for display
+  priceHuman?: string // Human-readable price (e.g., "50000.00")
+  quantityHuman?: string // Human-readable quantity (e.g., "0.5")
+  marketPair?: string // Market pair name (e.g., "BTC/USDC")
 }
 
 export interface StrategyExecutionResult {

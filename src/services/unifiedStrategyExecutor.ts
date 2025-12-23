@@ -26,6 +26,27 @@ function scaleUpAndTruncateToInt(amount: Decimal, decimals: number, maxPrecision
   return priceInt.div(truncateFactor).floor().mul(truncateFactor)
 }
 
+/**
+ * Format price with appropriate decimal places based on value
+ */
+function formatPrice(price: Decimal): string {
+  const priceValue = price.toNumber()
+  
+  if (priceValue === 0 || isNaN(priceValue) || !isFinite(priceValue)) {
+    return '0.00'
+  }
+  
+  if (priceValue >= 1) {
+    return priceValue.toFixed(2)
+  } else if (priceValue >= 0.01) {
+    return priceValue.toFixed(4)
+  } else if (priceValue >= 0.0001) {
+    return priceValue.toFixed(6)
+  } else {
+    return priceValue.toFixed(8).replace(/\.?0+$/, '')
+  }
+}
+
 class UnifiedStrategyExecutor {
   /**
    * Execute strategy based on configuration
@@ -308,20 +329,35 @@ class UnifiedStrategyExecutor {
       )
 
       console.log('[UnifiedStrategyExecutor] Buy order placed:', order.order_id)
+      const marketPair = `${market.base.symbol}/${market.quote.symbol}`
+      
+      // Use ticker price as fallback if calculated price is 0 or invalid
+      let displayPrice = buyPriceHuman
+      if (buyPriceHuman.eq(0) || buyPriceHuman.isNaN() || !buyPriceHuman.isFinite()) {
+        if (ticker && ticker.last_price) {
+          displayPrice = new Decimal(ticker.last_price).div(10 ** market.quote.decimals)
+        }
+      }
+      
       return {
         orderId: order.order_id,
         side: 'Buy',
         success: true,
         price: buyPriceScaled,
         quantity: quantityScaled,
+        priceHuman: formatPrice(displayPrice),
+        quantityHuman: quantityRounded.toFixed(6).replace(/\.?0+$/, ''),
+        marketPair,
       }
     } catch (error: any) {
       console.error('[UnifiedStrategyExecutor] Buy order failed:', error)
+      const marketPair = `${market.base.symbol}/${market.quote.symbol}`
       return {
         orderId: '',
         side: 'Buy',
         success: false,
         error: error.message,
+        marketPair,
       }
     }
   }
@@ -391,20 +427,35 @@ class UnifiedStrategyExecutor {
       )
 
       console.log('[UnifiedStrategyExecutor] Sell order placed:', order.order_id)
+      const marketPair = `${market.base.symbol}/${market.quote.symbol}`
+      
+      // Use ticker price as fallback if calculated price is 0 or invalid
+      let displayPrice = sellPriceHuman
+      if (sellPriceHuman.eq(0) || sellPriceHuman.isNaN() || !sellPriceHuman.isFinite()) {
+        if (ticker && ticker.last_price) {
+          displayPrice = new Decimal(ticker.last_price).div(10 ** market.quote.decimals)
+        }
+      }
+      
       return {
         orderId: order.order_id,
         side: 'Sell',
         success: true,
         price: sellPriceScaled,
         quantity: quantityScaled,
+        priceHuman: formatPrice(displayPrice),
+        quantityHuman: quantityRounded.toFixed(6).replace(/\.?0+$/, ''),
+        marketPair,
       }
     } catch (error: any) {
       console.error('[UnifiedStrategyExecutor] Sell order failed:', error)
+      const marketPair = `${market.base.symbol}/${market.quote.symbol}`
       return {
         orderId: '',
         side: 'Sell',
         success: false,
         error: error.message,
+        marketPair,
       }
     }
   }

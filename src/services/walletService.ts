@@ -26,13 +26,20 @@ export const fuel = new Fuel(fuelConfig)
 // Note: You'll need to set WALLETCONNECT_PROJECT_ID in environment
 const WALLETCONNECT_PROJECT_ID = ((import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID as string) || ''
 
+// RPC URLs - use environment variables for custom/private RPCs to avoid rate limiting
+// If not set, uses default public RPCs (which have strict rate limits)
+const BASE_RPC_URL = ((import.meta as any).env?.VITE_BASE_RPC_URL as string) || undefined
+const MAINNET_RPC_URL = ((import.meta as any).env?.VITE_MAINNET_RPC_URL as string) || undefined
+const SEPOLIA_RPC_URL = ((import.meta as any).env?.VITE_SEPOLIA_RPC_URL as string) || undefined
+const BASE_SEPOLIA_RPC_URL = ((import.meta as any).env?.VITE_BASE_SEPOLIA_RPC_URL as string) || undefined
+
 export const wagmiConfig = createConfig({
   chains: [baseSepolia, sepolia, base, mainnet],
   transports: {
-    [sepolia.id]: http(),
-    [baseSepolia.id]: http(),
-    [base.id]: http(),
-    [mainnet.id]: http(),
+    [sepolia.id]: http(SEPOLIA_RPC_URL),
+    [baseSepolia.id]: http(BASE_SEPOLIA_RPC_URL),
+    [base.id]: http(BASE_RPC_URL),
+    [mainnet.id]: http(MAINNET_RPC_URL),
   },
   connectors: [
     injected(),

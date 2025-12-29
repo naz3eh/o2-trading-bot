@@ -18,6 +18,7 @@ import Balances from './Balances'
 import TradeConsole from './TradeConsole'
 import CompetitionPanel from './CompetitionPanel'
 import WelcomeModal from './WelcomeModal'
+import DepositDialog from './DepositDialog'
 import { balanceService } from '../services/balanceService'
 import { TradingAccountBalances } from '../types/tradingAccount'
 import { filterMarkets } from '../utils/marketFilters'
@@ -40,6 +41,7 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
   const [balancesLoading, setBalancesLoading] = useState(false)
   const [showStrategyRecommendation, setShowStrategyRecommendation] = useState(false)
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [showDepositDialog, setShowDepositDialog] = useState(false)
   const { addToast } = useToast()
 
   // Fetch data when auth flow is ready (no duplicate initialization)
@@ -360,14 +362,14 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
               <div className="balances-section">
                 <div className="section-header">
                   <h2>Balances</h2>
-                  <a
-                    href="https://o2.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
                     className="deposit-link"
+                    // onClick={() => setShowDepositDialog(true)}
+                    // open o2.app in new tab
+                    onClick={() => window.open('https://o2.app', '_blank')}
                   >
-                    Deposit Funds on o2.app →
-                  </a>
+                    Deposit Funds on o2.app
+                  </button>
                 </div>
                 <div className="section-content">
                   <Balances balances={balances} loading={balancesLoading} />
@@ -402,6 +404,22 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
           onClose={() => setShowWelcomeModal(false)}
         />
       )}
+
+      {/* Deposit Dialog */}
+      <DepositDialog
+        isOpen={showDepositDialog}
+        onClose={() => {
+          setShowDepositDialog(false)
+          // Refresh balances after deposit closes
+          if (tradingAccount && markets.length > 0 && walletAddress) {
+            balanceService.clearCache()
+            balanceService.getAllBalances(markets, tradingAccount.id, walletAddress)
+              .then(setBalances)
+              .catch(console.error)
+          }
+        }}
+        tradingAccountId={tradingAccount?.id}
+      />
       </div>
     </AuthFlowGuard>
   )

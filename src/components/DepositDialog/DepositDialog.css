@@ -1,0 +1,635 @@
+/* Deposit Dialog Styles - matching o2.app design */
+
+.deposit-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.deposit-dialog {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.deposit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.deposit-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.deposit-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.deposit-close-btn:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.deposit-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Wallet Selection Step */
+.wallet-select-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wallet-select-label {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+
+.wallet-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wallet-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wallet-option:hover {
+  border-color: var(--ring);
+  background: var(--accent);
+}
+
+.wallet-option-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.wallet-option-icon.evm {
+  background: linear-gradient(135deg, #627eea 0%, #a855f7 100%);
+}
+
+.wallet-option-icon.fuel {
+  background: linear-gradient(135deg, #00f58c 0%, #00d17a 100%);
+}
+
+.wallet-option-info {
+  flex: 1;
+}
+
+.wallet-option-name {
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 4px;
+}
+
+.wallet-option-desc {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.wallet-option-arrow {
+  color: var(--muted-foreground);
+  font-size: 18px;
+}
+
+/* Deposit Form Step */
+.deposit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.deposit-from-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--secondary);
+  border-radius: 10px;
+}
+
+.deposit-from-label {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.deposit-from-wallet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deposit-from-address {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--foreground);
+}
+
+.deposit-change-btn {
+  font-size: 12px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.deposit-change-btn:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Asset Selector */
+.asset-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.asset-selector-label {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.asset-selector-dropdown {
+  position: relative;
+}
+
+.asset-selector-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.asset-selector-button:hover {
+  border-color: var(--ring);
+}
+
+.asset-selected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.asset-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.asset-info {
+  text-align: left;
+}
+
+.asset-symbol {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.asset-network {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.asset-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.asset-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.asset-dropdown-item:hover {
+  background: var(--accent);
+}
+
+.asset-dropdown-item.selected {
+  background: var(--accent);
+}
+
+.asset-dropdown-balance {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  font-family: monospace;
+}
+
+/* Amount Input */
+.amount-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.amount-input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.amount-input-label {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.amount-balance {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.amount-balance-value {
+  font-family: monospace;
+  color: var(--foreground);
+}
+
+.amount-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.amount-input {
+  width: 100%;
+  padding: 14px 80px 14px 16px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--foreground);
+  font-size: 18px;
+  font-family: monospace;
+}
+
+.amount-input:focus {
+  outline: none;
+  border-color: var(--ring);
+}
+
+.amount-input.error {
+  border-color: var(--destructive);
+}
+
+.amount-max-btn {
+  position: absolute;
+  right: 12px;
+  padding: 6px 12px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.amount-max-btn:hover {
+  opacity: 0.9;
+}
+
+.amount-error {
+  color: var(--destructive);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* Submit Button */
+.deposit-submit-section {
+  margin-top: 8px;
+}
+
+.deposit-submit-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.deposit-submit-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.deposit-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deposit-submit-btn.loading {
+  background: var(--muted);
+}
+
+/* Loading State */
+.deposit-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.deposit-loading-text {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin-top: 16px;
+}
+
+/* Submitting State */
+.deposit-submitting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.deposit-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 24px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.deposit-submitting-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 8px;
+}
+
+.deposit-submitting-step {
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+
+/* Success State */
+.deposit-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.deposit-success-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #00f58c 0%, #00d17a 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 24px;
+}
+
+.deposit-success-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 8px;
+}
+
+.deposit-success-desc {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin-bottom: 24px;
+}
+
+.deposit-success-tx {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--secondary);
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.deposit-success-tx-label {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.deposit-success-tx-hash {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--foreground);
+}
+
+.deposit-success-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.deposit-view-btn,
+.deposit-done-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deposit-view-btn {
+  background: var(--secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.deposit-view-btn:hover {
+  background: var(--accent);
+}
+
+.deposit-done-btn {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+}
+
+.deposit-done-btn:hover {
+  opacity: 0.9;
+}
+
+/* Error State */
+.deposit-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.deposit-error-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--destructive);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 24px;
+  color: white;
+}
+
+.deposit-error-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 8px;
+}
+
+.deposit-error-desc {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin-bottom: 24px;
+}
+
+.deposit-retry-btn {
+  padding: 14px 32px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deposit-retry-btn:hover {
+  opacity: 0.9;
+}
+
+/* Approval Panel */
+.approval-panel {
+  padding: 16px;
+  background: var(--secondary);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.approval-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 8px;
+}
+
+.approval-panel-desc {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .deposit-dialog {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  .deposit-body {
+    padding: 16px;
+  }
+}

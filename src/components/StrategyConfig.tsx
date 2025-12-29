@@ -206,12 +206,22 @@ export default function StrategyConfig({ markets }: StrategyConfigProps) {
 
   const handleResetToDefault = () => {
     if (!selectedMarket) return
-    
+
     const defaultConfig = getDefaultStrategyConfig(selectedMarket)
     if (editingConfig) {
       setEditingConfig({
         ...editingConfig,
         config: defaultConfig,
+      })
+    } else if (isCreating) {
+      // Reset for new strategy
+      setEditingConfig({
+        id: selectedMarket,
+        marketId: selectedMarket,
+        config: defaultConfig,
+        isActive: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     }
   }
@@ -242,12 +252,36 @@ export default function StrategyConfig({ markets }: StrategyConfigProps) {
                   markets={markets}
                   selectedMarket={selectedMarket}
                   config={currentConfig}
-                  onMarketChange={setSelectedMarket}
+                  onMarketChange={(marketId) => {
+                    setSelectedMarket(marketId)
+                    // When creating new and market changes, create a new editingConfig
+                    if (isCreating && marketId) {
+                      const newConfig = getDefaultStrategyConfig(marketId)
+                      setEditingConfig({
+                        id: marketId,
+                        marketId: marketId,
+                        config: newConfig,
+                        isActive: true,
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                      })
+                    }
+                  }}
                   onConfigChange={(newConfig) => {
                     if (editingConfig) {
                       setEditingConfig({
                         ...editingConfig,
                         config: newConfig,
+                      })
+                    } else if (isCreating && selectedMarket) {
+                      // Creating new - initialize editingConfig with the new config
+                      setEditingConfig({
+                        id: selectedMarket,
+                        marketId: selectedMarket,
+                        config: newConfig,
+                        isActive: true,
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
                       })
                     }
                   }}
@@ -261,7 +295,20 @@ export default function StrategyConfig({ markets }: StrategyConfigProps) {
                   <select
                     value={selectedMarket}
                     onChange={(e) => {
-                      setSelectedMarket(e.target.value)
+                      const marketId = e.target.value
+                      setSelectedMarket(marketId)
+                      // Initialize editingConfig when market is selected
+                      if (marketId) {
+                        const newConfig = getDefaultStrategyConfig(marketId)
+                        setEditingConfig({
+                          id: marketId,
+                          marketId: marketId,
+                          config: newConfig,
+                          isActive: true,
+                          createdAt: Date.now(),
+                          updatedAt: Date.now(),
+                        })
+                      }
                     }}
                     required
                     style={{ width: '100%', padding: '8px 12px', marginTop: '8px' }}

@@ -245,6 +245,24 @@
   text-decoration: none;
 }
 
+.create-strategy-button {
+  display: inline-block;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.create-strategy-button:hover {
+  opacity: 0.9;
+}
+
 .section-content {
   flex: 1;
   overflow-y: auto;

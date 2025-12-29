@@ -7,6 +7,8 @@ import './StrategyConfig.css'
 
 interface StrategyConfigProps {
   markets: Market[]
+  onCreateNew?: () => void
+  createNewRef?: React.MutableRefObject<(() => void) | null>
 }
 
 // Migration function to convert old config structure to new structure
@@ -70,7 +72,7 @@ const migrateOldConfig = (oldConfig: any): StrategyConfigType => {
     return defaultConfig
 }
 
-export default function StrategyConfig({ markets }: StrategyConfigProps) {
+export default function StrategyConfig({ markets, createNewRef }: StrategyConfigProps) {
   const [configs, setConfigs] = useState<StrategyConfigStore[]>([])
   const [editingConfig, setEditingConfig] = useState<StrategyConfigStore | null>(null)
   const [selectedMarket, setSelectedMarket] = useState<string>('')
@@ -79,6 +81,18 @@ export default function StrategyConfig({ markets }: StrategyConfigProps) {
 
   useEffect(() => {
     loadConfigs()
+  }, [])
+
+  // Expose handleCreateNew via ref for external triggering
+  useEffect(() => {
+    if (createNewRef) {
+      createNewRef.current = handleCreateNew
+    }
+    return () => {
+      if (createNewRef) {
+        createNewRef.current = null
+      }
+    }
   }, [])
 
   const loadConfigs = async () => {
@@ -231,14 +245,6 @@ export default function StrategyConfig({ markets }: StrategyConfigProps) {
 
   return (
     <div className="strategy-config">
-      {!showForm && (
-        <div className="strategy-config-header">
-          <button onClick={handleCreateNew} className="btn btn-primary">
-            Create New Strategy
-          </button>
-        </div>
-      )}
-
       {showForm && (
         <div className="config-modal-overlay" onClick={handleCancel}>
           <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>

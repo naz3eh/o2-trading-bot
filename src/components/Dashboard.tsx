@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { walletService } from '../services/walletService'
 import { sessionService } from '../services/sessionService'
 import { tradingEngine } from '../services/tradingEngine'
@@ -43,6 +43,7 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [showDepositDialog, setShowDepositDialog] = useState(false)
   const { addToast } = useToast()
+  const strategyCreateNewRef = useRef<(() => void) | null>(null)
 
   // Fetch data when auth flow is ready (no duplicate initialization)
   useEffect(() => {
@@ -390,9 +391,15 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
               <div className="strategy-settings-section">
                 <div className="section-header">
                   <h2>Strategy Configuration</h2>
+                  <button
+                    className="create-strategy-button"
+                    onClick={() => strategyCreateNewRef.current?.()}
+                  >
+                    Create New Strategy
+                  </button>
                 </div>
                 <div className="section-content">
-                  <StrategyConfig markets={markets} />
+                  <StrategyConfig markets={markets} createNewRef={strategyCreateNewRef} />
                 </div>
               </div>
             </div>

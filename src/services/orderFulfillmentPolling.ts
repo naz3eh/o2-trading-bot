@@ -1,8 +1,8 @@
 import { orderFulfillmentService } from './orderFulfillmentService'
-import { orderService } from './orderService'
 import { db } from './dbService'
 import { tradingEngine } from './tradingEngine'
 import { marketService } from './marketService'
+import { tradeHistoryService } from './tradeHistoryService'
 import { OrderSide } from '../types/order'
 import { sessionService } from './sessionService'
 
@@ -25,8 +25,9 @@ class OrderFulfillmentPolling {
 
       try {
         // Track fills and update configs
+        // Note: Cancelled order detection is handled by tradingEngine.syncPendingTradeStatuses()
         const fills = await orderFulfillmentService.trackOrderFills(marketId, ownerAddress)
-        
+
         if (fills.size > 0) {
           console.log(`[OrderFulfillmentPolling] Detected ${fills.size} fill(s) for market ${marketId}`)
           
@@ -44,6 +45,13 @@ class OrderFulfillmentPolling {
                   market,
                   previousFilledQuantity
                 )
+
+                // Update trade record with fill info and status
+                await tradeHistoryService.updateTradeByOrderId(orderId, {
+                  status: 'filled',
+                  priceFill: order.price_fill,
+                  filledQuantity: order.filled_quantity,
+                })
               }
               
               // Update config in database

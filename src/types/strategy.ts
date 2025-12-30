@@ -191,6 +191,7 @@ export interface OrderExecution {
   priceHuman?: string // Human-readable price (e.g., "50000.00")
   quantityHuman?: string // Human-readable quantity (e.g., "0.5")
   marketPair?: string // Market pair name (e.g., "BTC/USDC")
+  isLimitOrder?: boolean // True if order was placed as limit (Spot) order
 }
 
 export interface StrategyExecutionResult {

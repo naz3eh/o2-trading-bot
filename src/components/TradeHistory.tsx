@@ -3,18 +3,19 @@ import { Trade } from '../types/trade'
 import { tradeHistoryService } from '../services/tradeHistoryService'
 import { tradingEngine } from '../services/tradingEngine'
 import { marketService } from '../services/marketService'
+import { Market } from '../types/market'
 import './TradeHistory.css'
 
 export default function TradeHistory() {
   const [trades, setTrades] = useState<Trade[]>([])
-  const [markets, setMarkets] = useState<Map<string, any>>(new Map())
+  const [markets, setMarkets] = useState<Map<string, Market>>(new Map())
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadTrades = async () => {
     const recentTrades = await tradeHistoryService.getRecentTrades(50)
     setTrades(recentTrades)
   }
-  
+
   const formatValue = (value: string, decimals: number = 18, maxDisplayDecimals: number = 8): string => {
     try {
       const bigIntValue = BigInt(value || '0')
@@ -38,22 +39,72 @@ export default function TradeHistory() {
       return value
     }
   }
-  
+
   const formatPrice = (price: string, marketId: string, priceFill?: string): string => {
     const market = markets.get(marketId)
     // Price is typically in quote token decimals
     const decimals = market?.quote?.decimals || 18
-    
+
     // Prefer fill price if available, otherwise use limit price
     const priceToFormat = priceFill && priceFill !== '0' ? priceFill : price
     return formatValue(priceToFormat, decimals)
   }
-  
-  const formatQuantity = (quantity: string, marketId: string, side: 'Buy' | 'Sell'): string => {
+
+  const formatQuantity = (quantity: string, marketId: string): string => {
     const market = markets.get(marketId)
     // Quantity is in base token decimals, limit to 3 decimal places for display
     const decimals = market?.base?.decimals || 18
     return formatValue(quantity, decimals, 3)
+  }
+
+  const getPairName = (marketId: string): string => {
+    const market = markets.get(marketId)
+    if (market) {
+      return `${market.base.symbol}/${market.quote.symbol}`
+    }
+    return formatAddress(marketId)
+  }
+
+  const getQuoteSymbol = (marketId: string): string => {
+    const market = markets.get(marketId)
+    return market?.quote?.symbol || 'USDC'
+  }
+
+  const getBaseSymbol = (marketId: string): string => {
+    const market = markets.get(marketId)
+    return market?.base?.symbol || ''
+  }
+
+  const formatFilledVsAll = (trade: Trade): string => {
+    const baseSymbol = getBaseSymbol(trade.marketId)
+    const filled = trade.filledQuantity && trade.filledQuantity !== '0'
+      ? formatQuantity(trade.filledQuantity, trade.marketId)
+      : '0.00'
+    const total = formatQuantity(trade.quantity, trade.marketId)
+    return `${filled} / ${total} ${baseSymbol}`
+  }
+
+  const formatTotal = (trade: Trade): string => {
+    const quoteSymbol = getQuoteSymbol(trade.marketId)
+    const market = markets.get(trade.marketId)
+
+    // Calculate total from fill price × filled quantity (or order price × quantity if not filled)
+    if (trade.priceFill && trade.priceFill !== '0' && trade.filledQuantity && trade.filledQuantity !== '0') {
+      const priceDecimals = market?.quote?.decimals || 18
+      const qtyDecimals = market?.base?.decimals || 18
+
+      try {
+        const priceBigInt = BigInt(trade.priceFill)
+        const qtyBigInt = BigInt(trade.filledQuantity)
+        // Total = price * qty / (10^baseDecimals) since price is already in quote decimals
+        const totalBigInt = (priceBigInt * qtyBigInt) / BigInt(10 ** qtyDecimals)
+        const total = formatValue(totalBigInt.toString(), priceDecimals, 2)
+        return `${total} ${quoteSymbol}`
+      } catch {
+        return `0.00 ${quoteSymbol}`
+      }
+    }
+    return `0.00 ${quoteSymbol}`
   }
 
   useEffect(() => {
@@ -67,14 +118,14 @@ export default function TradeHistory() {
         console.error('Failed to load markets for formatting', error)
       }
     }
-    
+
     loadMarkets()
     loadTrades()
 
     // Set up auto-refresh when trading is active
     const checkTradingStatus = () => {
       const isTrading = tradingEngine.isActive()
-      
+
       if (isTrading) {
         // Start polling every 5 seconds when trading
         if (!refreshIntervalRef.current) {
@@ -109,6 +160,11 @@ export default function TradeHistory() {
     return `${address.slice(0, 8)}...${address.slice(-6)}`
   }
 
+  const formatStatus = (status?: string): string => {
+    if (!status) return 'Unknown'
+    return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+
   return (
     <div className="trade-history">
       <h2>Trade History</h2>
@@ -119,12 +175,14 @@ export default function TradeHistory() {
         <table className="trades-table">
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Market</th>
+              <th>Date</th>
+              <th>Pair</th>
+              <th>Type</th>
               <th>Side</th>
               <th>Order Price</th>
               <th>Fill Price</th>
-              <th>Quantity</th>
+              <th>Filled / All</th>
+              <th>Total</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -132,29 +190,28 @@ export default function TradeHistory() {
             {trades.map((trade, index) => (
                 <tr key={trade.id || index} className={trade.success ? 'success' : 'failed'}>
                 <td>{new Date(trade.timestamp).toLocaleString()}</td>
-                  <td title={trade.marketId}>{formatAddress(trade.marketId)}</td>
-                  <td>
-                    <span className={`direction-badge ${trade.side.toLowerCase()}`}>
-                      {trade.side}
-                    </span>
-                  </td>
-                  <td>{formatPrice(trade.price, trade.marketId)}</td>
-                  <td>
-                    {trade.priceFill && trade.priceFill !== '0' 
-                      ? formatPrice(trade.price, trade.marketId, trade.priceFill)
-                      : <span className="text-muted">-</span>
-                    }
-                  </td>
-                  <td>
-                    {trade.filledQuantity && trade.filledQuantity !== '0'
-                      ? formatQuantity(trade.filledQuantity, trade.marketId, trade.side)
-                      : formatQuantity(trade.quantity, trade.marketId, trade.side)
-                    }
-                  </td>
-                  <td>
-                    <span className={`status-badge ${trade.success ? 'success' : 'failed'}`}>
-                  {trade.success ? 'Success' : 'Failed'}
-                    </span>
+                <td className="pair-cell">{getPairName(trade.marketId)}</td>
+                <td>
+                  <span className="type-badge">{trade.orderType || 'Limit'}</span>
+                </td>
+                <td>
+                  <span className={`direction-badge ${trade.side.toLowerCase()}`}>
+                    {trade.side}
+                  </span>
+                </td>
+                <td>{formatPrice(trade.price, trade.marketId)} {getQuoteSymbol(trade.marketId)}</td>
+                <td>
+                  {trade.priceFill && trade.priceFill !== '0'
+                    ? `${formatPrice(trade.price, trade.marketId, trade.priceFill)} ${getQuoteSymbol(trade.marketId)}`
+                    : <span className="text-muted">-</span>
+                  }
+                </td>
+                <td className="filled-all-cell">{formatFilledVsAll(trade)}</td>
+                <td className="total-cell">{formatTotal(trade)}</td>
+                <td>
+                  <span className={`status-badge ${trade.status || (trade.success ? 'filled' : 'failed')}`}>
+                    {formatStatus(trade.status) || (trade.success ? 'Filled' : 'Failed')}
+                  </span>
                 </td>
               </tr>
             ))}
@@ -165,4 +222,3 @@ export default function TradeHistory() {
     </div>
   )
 }
-

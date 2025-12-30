@@ -215,13 +215,8 @@ class TradingSessionService {
       session.totalSellValue += value
       session.totalSoldQuantity = new Decimal(session.totalSoldQuantity).add(quantityDecimal).toString()
 
-      // Calculate realized PnL when selling
-      // PnL = (sell price - avg buy price) * quantity - fees
-      if (session.averageBuyPrice !== '0') {
-        const avgBuy = new Decimal(session.averageBuyPrice)
-        const pnl = priceDecimal.minus(avgBuy).mul(quantityDecimal).toNumber()
-        session.realizedPnL += pnl
-      }
+      // NOTE: P&L calculation moved to updateSessionPnL() which is called only when fills are confirmed
+      // This prevents counting P&L for orders that get cancelled due to timeout
     }
 
     session.updatedAt = Date.now()
@@ -229,6 +224,31 @@ class TradingSessionService {
 
     this.notifyListeners(session)
     return session
+  }
+
+  /**
+   * Update session P&L when a sell order is confirmed filled
+   * This should only be called when we know the order has actually filled
+   */
+  async updateSessionPnL(
+    sessionId: string,
+    sellPrice: string,
+    quantity: string
+  ): Promise<void> {
+    const session = await db.tradingSessions.get(sessionId)
+    if (!session) return
+
+    if (session.averageBuyPrice !== '0') {
+      const priceDecimal = new Decimal(sellPrice)
+      const quantityDecimal = new Decimal(quantity)
+      const avgBuy = new Decimal(session.averageBuyPrice)
+      const pnl = priceDecimal.minus(avgBuy).mul(quantityDecimal).toNumber()
+      session.realizedPnL += pnl
+      session.updatedAt = Date.now()
+      await db.tradingSessions.put(session)
+      this.notifyListeners(session)
+      console.log(`[TradingSessionService] Updated session P&L: ${pnl.toFixed(4)} (total: ${session.realizedPnL.toFixed(4)})`)
+    }
   }
 
   /**

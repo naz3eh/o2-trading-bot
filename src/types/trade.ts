@@ -5,6 +5,7 @@ export interface Trade {
   orderId: string
   sessionId?: string
   side: 'Buy' | 'Sell'
+  orderType?: 'Limit' | 'Market' // Order type (Limit or Market)
   price: string // Limit price (for backward compatibility)
   priceFill?: string // Actual execution price (price_fill from order)
   quantity: string
@@ -15,6 +16,7 @@ export interface Trade {
   quoteBalance?: string
   success: boolean
   error?: string
+  status?: 'pending' | 'filled' | 'cancelled' | 'failed' // Order lifecycle status
 }
 
 export interface TradeExecution {

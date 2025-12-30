@@ -11,7 +11,7 @@ import { balanceService } from './balanceService'
 import { tradingSessionService } from './tradingSessionService'
 import { db } from './dbService'
 import { Trade } from '../types/trade'
-import { Order, OrderSide } from '../types/order'
+import { Order, OrderSide, OrderStatus } from '../types/order'
 import { TradingSession } from '../types/tradingSession'
 
 type TradeCallback = () => void
@@ -483,16 +483,44 @@ class TradingEngine {
               // so fetchedOrder (if not null) is already persisted with latest fill info.
               // This ensures trackOrderFills() will have accurate data to compare against.
               
+              // Use the API order status if available (properly mapped from close/cancel fields)
+              // Fall back to isLimitOrder check if order wasn't fetched
+              let tradeStatus: 'pending' | 'filled' | 'cancelled' | 'failed' = 'pending'
+              // Note: fetchedOrder is assigned in the closure above, TypeScript can't track this
+              const orderForStatus = fetchedOrder as Order | null
+              if (orderForStatus) {
+                // Map OrderStatus enum to trade status string
+                switch (orderForStatus.status) {
+                  case OrderStatus.Filled:
+                    tradeStatus = 'filled'
+                    break
+                  case OrderStatus.Cancelled:
+                    tradeStatus = 'cancelled'
+                    break
+                  case OrderStatus.Open:
+                  case OrderStatus.PartiallyFilled:
+                    tradeStatus = 'pending'
+                    break
+                  default:
+                    tradeStatus = orderExec.isLimitOrder ? 'pending' : 'filled'
+                }
+              } else {
+                // Fallback if order fetch failed
+                tradeStatus = orderExec.isLimitOrder ? 'pending' : 'filled'
+              }
+
               const trade: Trade = {
                 timestamp: Date.now(),
                 marketId: marketConfig.market.market_id,
                 orderId: orderExec.orderId,
                 side: orderExec.side,
+                orderType: orderExec.isLimitOrder ? 'Limit' : 'Market',
                 price: orderExec.price || '0',
                 priceFill: priceFill,
                 quantity: orderExec.quantity || '0',
                 filledQuantity: filledQuantity,
                 success: true,
+                status: tradeStatus,
               }
 
               await tradeHistoryService.addTrade(trade)
@@ -620,6 +648,7 @@ class TradingEngine {
                       const priceHuman = new Decimal(sellOrder.priceHuman)
 
                       // Record trade (use scaled values from the order for storage)
+                      // Immediate sell orders are always Spot/Limit, so status is 'pending'
                       const trade: Trade = {
                         timestamp: Date.now(),
                         marketId: market.market_id,
@@ -628,6 +657,7 @@ class TradingEngine {
                         price: sellOrder.order.price || sellOrder.priceHuman,
                         quantity: sellOrder.order.quantity || sellOrder.quantityHuman,
                         success: true,
+                        status: 'pending',
                       }
                       await tradeHistoryService.addTrade(trade)
 
@@ -657,6 +687,18 @@ class TradingEngine {
                       )
                       marketConfig.config = updatedConfig
                     }
+
+                    // Also update session P&L for confirmed sell fills
+                    const sessionId = tradingSessionService.getCurrentSessionId()
+                    if (sessionId && fillData.order.price_fill && fillData.order.filled_quantity) {
+                      const fillPriceHuman = new Decimal(fillData.order.price_fill)
+                        .div(10 ** marketConfig.market.quote.decimals)
+                        .toString()
+                      const fillQtyHuman = new Decimal(fillData.order.filled_quantity)
+                        .div(10 ** marketConfig.market.base.decimals)
+                        .toString()
+                      await tradingSessionService.updateSessionPnL(sessionId, fillPriceHuman, fillQtyHuman)
+                    }
                   } catch (error) {
                     console.error(`[TradingEngine] Error updating P&L for sell fill ${orderId}:`, error)
                   }
@@ -667,6 +709,9 @@ class TradingEngine {
             console.error('[TradingEngine] Error tracking order fills:', error)
           }
         }
+
+        // Sync pending trade statuses with API (handles cancelled/filled orders)
+        await this.syncPendingTradeStatuses(marketConfig.market.market_id, this.ownerAddress!)
 
         // Schedule next execution
         const nextRunAt = result.nextRunAt || Date.now() + this.getJitteredDelay(marketConfig.config)
@@ -701,6 +746,74 @@ class TradingEngine {
     const min = config.timing.cycleIntervalMinMs
     const max = config.timing.cycleIntervalMaxMs
     return min + Math.floor(Math.random() * (max - min + 1))
+  }
+
+  /**
+   * Sync pending trade statuses with API to detect cancelled/filled orders
+   */
+  private async syncPendingTradeStatuses(marketId: string, ownerAddress: string): Promise<void> {
+    try {
+      // Get trades with pending status for this market
+      const pendingTrades = await db.trades
+        .where('marketId')
+        .equals(marketId)
+        .filter(t => t.status === 'pending')
+        .toArray()
+
+      if (pendingTrades.length === 0) {
+        return
+      }
+
+      console.log(`[TradingEngine] Syncing ${pendingTrades.length} pending trade(s) for market ${marketId}`)
+
+      // Check each pending trade's order status via API
+      for (const trade of pendingTrades) {
+        if (!trade.orderId) continue
+
+        try {
+          const order = await orderService.getOrder(trade.orderId, marketId, ownerAddress)
+          if (order) {
+            if (order.status === OrderStatus.Cancelled) {
+              console.log(`[TradingEngine] Order ${trade.orderId} was cancelled, updating trade status`)
+              await tradeHistoryService.updateTradeByOrderId(trade.orderId, {
+                status: 'cancelled',
+                success: false,
+              })
+            } else if (order.status === OrderStatus.Filled) {
+              console.log(`[TradingEngine] Order ${trade.orderId} was filled, updating trade status`)
+              await tradeHistoryService.updateTradeByOrderId(trade.orderId, {
+                status: 'filled',
+                priceFill: order.price_fill,
+                filledQuantity: order.filled_quantity,
+              })
+
+              // Update session P&L for confirmed sell fills
+              if (trade.side === 'Sell' && order.price_fill && order.filled_quantity) {
+                const sessionId = tradingSessionService.getCurrentSessionId()
+                if (sessionId) {
+                  // Get market decimals to convert to human-readable format
+                  const market = await marketService.getMarket(marketId)
+                  if (market) {
+                    const fillPriceHuman = new Decimal(order.price_fill)
+                      .div(10 ** market.quote.decimals)
+                      .toString()
+                    const fillQtyHuman = new Decimal(order.filled_quantity)
+                      .div(10 ** market.base.decimals)
+                      .toString()
+                    await tradingSessionService.updateSessionPnL(sessionId, fillPriceHuman, fillQtyHuman)
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // Order might not exist anymore, skip silently
+          console.warn(`[TradingEngine] Could not check order ${trade.orderId}:`, error)
+        }
+      }
+    } catch (error) {
+      console.error('[TradingEngine] Error syncing pending trade statuses:', error)
+    }
   }
 
   /**
@@ -775,6 +888,12 @@ class TradingEngine {
             await orderService.cancelOrder(order.order_id, marketId, ownerAddress)
             cancelledCount++
             console.log(`[TradingEngine] Order timeout: Cancelled order ${order.order_id} (age: ${Math.floor((Date.now() - order.created_at) / 60000)} min)`)
+
+            // Update trade record to show cancelled status
+            await tradeHistoryService.updateTradeByOrderId(order.order_id, {
+              status: 'cancelled',
+              success: false,
+            })
           } catch (error) {
             console.error(`[TradingEngine] Order timeout: Failed to cancel order ${order.order_id}:`, error)
           }

@@ -80,11 +80,11 @@
 }
 
 .trades-table tbody tr.success {
-  background-color: rgba(82, 196, 26, 0.1);
+  background-color: rgba(82, 196, 26, 0.05);
 }
 
 .trades-table tbody tr.failed {
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: rgba(239, 68, 68, 0.05);
 }
 
 .trades-table td {
@@ -92,6 +92,17 @@
   color: var(--foreground);
   text-align: center;
   font-size: 12px;
+}
+
+/* Type badge styling */
+.type-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(156, 163, 175, 0.2);
+  color: var(--muted-foreground);
+  border: 1px solid rgba(156, 163, 175, 0.3);
 }
 
 .direction-badge {
@@ -131,7 +142,8 @@
   letter-spacing: 0.3px;
 }
 
-.status-badge.success {
+.status-badge.success,
+.status-badge.filled {
   background: rgba(82, 196, 26, 0.2);
   color: var(--success);
   border: 1px solid rgba(82, 196, 26, 0.3);
@@ -151,6 +163,12 @@
   border: 1px solid rgba(251, 146, 60, 0.3);
 }
 
+.status-badge.cancelled {
+  background: rgba(156, 163, 175, 0.2);
+  color: var(--muted-foreground);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
 .error-cell {
   max-width: 200px;
 }
@@ -161,17 +179,36 @@
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
 }
 
-
-/* Market ID column with monospace */
-.trades-table td:nth-child(2) {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
-  font-size: 11px;
+/* Muted text for empty values */
+.text-muted {
   color: var(--muted-foreground);
 }
 
-/* Numeric values with monospace font */
-.trades-table td:nth-child(4),
-.trades-table td:nth-child(5) {
+/* Pair column styling */
+.pair-cell {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* Filled/All and Total columns with monospace */
+.filled-all-cell,
+.total-cell {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Timestamp column */
+.trades-table td:first-child {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* Numeric values with monospace font (Order Price, Fill Price) */
+.trades-table td:nth-child(5),
+.trades-table td:nth-child(6) {
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
   white-space: nowrap;
 }
@@ -182,13 +219,6 @@
   vertical-align: middle;
 }
 
-/* Timestamp column */
-.trades-table td:first-child {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
-  font-size: 11px;
-  color: var(--muted-foreground);
-}
-
 .loading,
 .empty-state {
   text-align: center;
@@ -196,4 +226,3 @@
   color: var(--muted-foreground);
   font-size: 13px;
 }
-

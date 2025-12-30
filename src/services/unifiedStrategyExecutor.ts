@@ -564,6 +564,7 @@ class UnifiedStrategyExecutor {
         }
       }
       
+      const isLimitOrder = config.orderConfig.orderType === 'Spot'
       return {
         orderId: order.order_id,
         side: 'Buy',
@@ -573,6 +574,7 @@ class UnifiedStrategyExecutor {
         priceHuman: formatPrice(displayPrice),
         quantityHuman: quantityRounded.toFixed(3).replace(/\.?0+$/, ''),
         marketPair,
+        isLimitOrder,
       }
     } catch (error: any) {
       console.error('[UnifiedStrategyExecutor] Buy order failed:', error)
@@ -727,6 +729,8 @@ class UnifiedStrategyExecutor {
         }
       }
       
+      // Limit order if forced (profit protection) or config is Spot
+      const isLimitOrder = forceLimitOrder || config.orderConfig.orderType === 'Spot'
       return {
         orderId: order.order_id,
         side: 'Sell',
@@ -736,6 +740,7 @@ class UnifiedStrategyExecutor {
         priceHuman: formatPrice(displayPrice),
         quantityHuman: quantityRounded.toFixed(3).replace(/\.?0+$/, ''),
         marketPair,
+        isLimitOrder,
       }
     } catch (error: any) {
       console.error('[UnifiedStrategyExecutor] Sell order failed:', error)

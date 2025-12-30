@@ -39,7 +39,7 @@ class TradeHistoryService {
     totalVolumeUsd: number
   }> {
     let trades = await this.getTrades(marketId, 10000) // Get all trades
-    
+
     const stats = {
       totalTrades: trades.length,
       successfulTrades: trades.filter((t) => t.success).length,
@@ -48,6 +48,22 @@ class TradeHistoryService {
     }
 
     return stats
+  }
+
+  async getTradeByOrderId(orderId: string): Promise<Trade | undefined> {
+    const trades = await db.trades.where('orderId').equals(orderId).toArray()
+    return trades[0]
+  }
+
+  async updateTradeByOrderId(orderId: string, updates: Partial<Trade>): Promise<void> {
+    const trades = await db.trades.where('orderId').equals(orderId).toArray()
+    console.log(`[TradeHistoryService] updateTradeByOrderId: orderId=${orderId}, found=${trades.length} trades`)
+    if (trades.length > 0 && trades[0].id !== undefined) {
+      console.log(`[TradeHistoryService] Updating trade id=${trades[0].id} with:`, updates)
+      await db.trades.update(trades[0].id, updates)
+    } else {
+      console.warn(`[TradeHistoryService] Could not update trade: orderId=${orderId}, trades found=${trades.length}, id=${trades[0]?.id}`)
+    }
   }
 }
 

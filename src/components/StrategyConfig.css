@@ -111,6 +111,62 @@
   gap: 4px;
 }
 
+/* Preset Tabs */
+.preset-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px 0;
+}
+
+.preset-tab {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.preset-tab:hover {
+  border-color: var(--primary);
+  background: var(--muted);
+}
+
+.preset-tab.active {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.preset-tab-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--foreground);
+  margin-bottom: 2px;
+}
+
+.preset-tab.active .preset-tab-name {
+  color: var(--primary);
+}
+
+.preset-tab-desc {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  line-height: 1.3;
+}
+
+@media (max-width: 768px) {
+  .preset-tabs {
+    flex-wrap: wrap;
+  }
+
+  .preset-tab {
+    flex: 1 1 45%;
+    min-width: 45%;
+  }
+}
+
 .strategy-config {
   width: 100%;
   padding: 0;
@@ -959,6 +1015,31 @@
   font-size: 10px;
   line-height: 1.4;
   font-weight: 400;
+}
+
+/* Field hint - appears below inputs */
+.field-hint {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  line-height: 1.3;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Locked field indicator */
+.field-locked-indicator {
+  margin-left: 4px;
+  font-size: 10px;
+  cursor: help;
+}
+
+/* Disabled locked select */
+.form-field select.disabled-locked {
+  background: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .radio-group {

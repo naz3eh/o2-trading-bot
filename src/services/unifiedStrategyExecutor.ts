@@ -439,9 +439,10 @@ class UnifiedStrategyExecutor {
     }
 
     // Apply offset
-    const offsetMultiplier = 1 + (orderConfig.priceOffsetPercent / 100)
-    const buyPrice = referencePrice.mul(offsetMultiplier)
-    const sellPrice = referencePrice.mul(1 - (orderConfig.priceOffsetPercent / 100))
+    // Buy BELOW reference price (subtract offset) - pay less
+    // Sell ABOVE reference price (add offset) - receive more
+    const buyPrice = referencePrice.mul(1 - (orderConfig.priceOffsetPercent / 100))
+    const sellPrice = referencePrice.mul(1 + (orderConfig.priceOffsetPercent / 100))
 
     return { buyPrice, sellPrice }
   }

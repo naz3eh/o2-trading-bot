@@ -177,6 +177,102 @@ export function getDefaultStrategyConfig(marketId: string): StrategyConfig {
 }
 
 // ============================================
+// STRATEGY PRESETS
+// ============================================
+export type StrategyPreset = 'simple' | 'volumeMaximizing' | 'profitTaking' | 'custom'
+
+export const STRATEGY_PRESET_LABELS: Record<StrategyPreset, string> = {
+  simple: 'Simple',
+  volumeMaximizing: 'Volume Max',
+  profitTaking: 'Profit Taking',
+  custom: 'Custom'
+}
+
+export const STRATEGY_PRESET_DESCRIPTIONS: Record<StrategyPreset, string> = {
+  simple: 'Balanced trading with profit protection',
+  volumeMaximizing: 'Maximum volume, P&L not priority',
+  profitTaking: 'Ensures 0.1%+ profit per trade',
+  custom: 'Full control over all settings'
+}
+
+export function getPresetStrategyConfig(marketId: string, preset: StrategyPreset): StrategyConfig {
+  const base = getDefaultStrategyConfig(marketId)
+
+  switch (preset) {
+    case 'simple':
+      return {
+        ...base,
+        name: 'Simple Mode',
+        orderConfig: {
+          ...base.orderConfig,
+          orderType: 'Spot', // Limit orders required for sell above buy
+        },
+        orderManagement: { ...base.orderManagement, onlySellAboveBuyPrice: true }
+      }
+
+    case 'volumeMaximizing':
+      return {
+        ...base,
+        name: 'Volume Maximizing',
+        orderConfig: {
+          ...base.orderConfig,
+          orderType: 'Market',
+          priceMode: 'market',
+          priceOffsetPercent: 0,
+          maxSpreadPercent: 5.0
+        },
+        orderManagement: {
+          ...base.orderManagement,
+          onlySellAboveBuyPrice: false,
+          maxOpenOrders: 3
+        },
+        riskManagement: {
+          ...base.riskManagement,
+          takeProfitPercent: 0
+        },
+        timing: {
+          cycleIntervalMinMs: 1000,
+          cycleIntervalMaxMs: 2000
+        }
+      }
+
+    case 'profitTaking':
+      return {
+        ...base,
+        name: 'Profit Taking',
+        orderConfig: {
+          ...base.orderConfig,
+          orderType: 'Spot',
+          priceMode: 'offsetFromMid',
+          priceOffsetPercent: 0.05,
+          maxSpreadPercent: 1.5
+        },
+        orderManagement: {
+          ...base.orderManagement,
+          onlySellAboveBuyPrice: true
+        },
+        riskManagement: {
+          ...base.riskManagement,
+          takeProfitPercent: 0.1,
+          orderTimeoutEnabled: true,
+          orderTimeoutMinutes: 15
+        },
+        timing: {
+          cycleIntervalMinMs: 4000,
+          cycleIntervalMaxMs: 7000
+        }
+      }
+
+    case 'custom':
+    default:
+      return {
+        ...base,
+        name: 'Custom',
+      }
+  }
+}
+
+// ============================================
 // ORDER EXECUTION & RESULTS
 // ============================================
 export interface OrderExecution {

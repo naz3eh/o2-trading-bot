@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Market } from '../types/market'
-import { StrategyConfigStore, StrategyConfig as StrategyConfigType, getDefaultStrategyConfig, OrderConfig, PositionSizingConfig, OrderManagementConfig, RiskManagementConfig, TimingConfig } from '../types/strategy'
+import { StrategyConfigStore, StrategyConfig as StrategyConfigType, getDefaultStrategyConfig, getPresetStrategyConfig, StrategyPreset, STRATEGY_PRESET_LABELS, STRATEGY_PRESET_DESCRIPTIONS, OrderConfig, PositionSizingConfig, OrderManagementConfig, RiskManagementConfig, TimingConfig } from '../types/strategy'
 import { db } from '../services/dbService'
 import { useToast } from './ToastProvider'
 import './StrategyConfig.css'
@@ -32,6 +32,71 @@ function Tooltip({ text, position = 'center' }: { text: string; position?: 'left
       <span className="tooltip-icon">?</span>
       <span className="tooltip-content">{text}</span>
     </span>
+  )
+}
+
+// NumberInput component that allows clearing the field
+interface NumberInputProps {
+  value: number
+  onChange: (value: number) => void
+  min?: number
+  max?: number
+  step?: number | string
+  disabled?: boolean
+  placeholder?: string
+  isInteger?: boolean
+}
+
+function NumberInput({ value, onChange, min, max, step = 'any', disabled, placeholder, isInteger }: NumberInputProps) {
+  const [localValue, setLocalValue] = useState<string>(String(value))
+
+  // Sync local value when external value changes (e.g., preset change)
+  useEffect(() => {
+    setLocalValue(String(value))
+  }, [value])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value
+    setLocalValue(rawValue) // Allow any input including empty
+
+    // Parse and update parent if valid
+    if (rawValue !== '' && rawValue !== '-') {
+      const parsed = isInteger ? parseInt(rawValue, 10) : parseFloat(rawValue)
+      if (!isNaN(parsed)) {
+        let clamped = parsed
+        if (min !== undefined) clamped = Math.max(min, clamped)
+        if (max !== undefined) clamped = Math.min(max, clamped)
+        onChange(clamped)
+      }
+    }
+  }
+
+  const handleBlur = () => {
+    // On blur, if empty or invalid, reset to current value
+    const parsed = isInteger ? parseInt(localValue, 10) : parseFloat(localValue)
+    if (isNaN(parsed) || localValue === '') {
+      setLocalValue(String(value))
+    } else {
+      // Ensure displayed value matches clamped value
+      let clamped = parsed
+      if (min !== undefined) clamped = Math.max(min, clamped)
+      if (max !== undefined) clamped = Math.min(max, clamped)
+      setLocalValue(String(clamped))
+    }
+  }
+
+  return (
+    <input
+      type="number"
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      placeholder={placeholder}
+    />
   )
 }
 
@@ -131,6 +196,7 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
   const [showImportModal, setShowImportModal] = useState(false)
   const [importMarket, setImportMarket] = useState<string>('')
   const [importJson, setImportJson] = useState<string>('')
+  const [currentPreset, setCurrentPreset] = useState<StrategyPreset>('simple')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { addToast } = useToast()
 
@@ -267,8 +333,8 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
         }
       }
     } else {
-      // Create new config with defaults
-      configToSave = getDefaultStrategyConfig(selectedMarket)
+      // Create new config with current preset
+      configToSave = getPresetStrategyConfig(selectedMarket, currentPreset)
     }
 
     const configStore: StrategyConfigStore = {
@@ -305,22 +371,46 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
   const handleResetToDefault = () => {
     if (!selectedMarket) return
 
-    const defaultConfig = getDefaultStrategyConfig(selectedMarket)
+    // Reset to Simple Mode preset
+    const simpleConfig = getPresetStrategyConfig(selectedMarket, 'simple')
     if (editingConfig) {
       setEditingConfig({
         ...editingConfig,
-        config: defaultConfig,
+        config: simpleConfig,
       })
     } else if (isCreating) {
       // Reset for new strategy
       setEditingConfig({
         id: selectedMarket,
         marketId: selectedMarket,
-        config: defaultConfig,
+        config: simpleConfig,
         isActive: true,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
+    }
+    setCurrentPreset('simple')
+  }
+
+  const handlePresetChange = (preset: StrategyPreset) => {
+    setCurrentPreset(preset)
+    if (selectedMarket) {
+      const presetConfig = getPresetStrategyConfig(selectedMarket, preset)
+      if (editingConfig) {
+        setEditingConfig({
+          ...editingConfig,
+          config: presetConfig,
+        })
+      } else if (isCreating) {
+        setEditingConfig({
+          id: selectedMarket,
+          marketId: selectedMarket,
+          config: presetConfig,
+          isActive: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        })
+      }
     }
   }
 
@@ -458,7 +548,7 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
     }
   }
 
-  const currentConfig = editingConfig?.config || (selectedMarket ? getDefaultStrategyConfig(selectedMarket) : null)
+  const currentConfig = editingConfig?.config || (selectedMarket ? getPresetStrategyConfig(selectedMarket, currentPreset) : null)
   const showForm = isCreating || editingConfig
 
   return (
@@ -498,11 +588,13 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
                   markets={markets}
                   selectedMarket={selectedMarket}
                   config={currentConfig}
+                  preset={currentPreset}
+                  onPresetChange={handlePresetChange}
                   onMarketChange={(marketId) => {
                     setSelectedMarket(marketId)
-                    // When creating new and market changes, create a new editingConfig
+                    // When creating new and market changes, create a new editingConfig with preset
                     if (isCreating && marketId) {
-                      const newConfig = getDefaultStrategyConfig(marketId)
+                      const newConfig = getPresetStrategyConfig(marketId, currentPreset)
                       setEditingConfig({
                         id: marketId,
                         marketId: marketId,
@@ -514,6 +606,10 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
                     }
                   }}
                   onConfigChange={(newConfig) => {
+                    // Switch to custom mode when user manually edits
+                    if (currentPreset !== 'custom') {
+                      setCurrentPreset('custom')
+                    }
                     if (editingConfig) {
                       setEditingConfig({
                         ...editingConfig,
@@ -543,9 +639,9 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
                     onChange={(e) => {
                       const marketId = e.target.value
                       setSelectedMarket(marketId)
-                      // Initialize editingConfig when market is selected
+                      // Initialize editingConfig when market is selected with current preset
                       if (marketId) {
-                        const newConfig = getDefaultStrategyConfig(marketId)
+                        const newConfig = getPresetStrategyConfig(marketId, currentPreset)
                         setEditingConfig({
                           id: marketId,
                           marketId: marketId,
@@ -758,6 +854,8 @@ interface StrategyConfigFormProps {
   markets: Market[]
   selectedMarket: string
   config: StrategyConfigType
+  preset: StrategyPreset
+  onPresetChange: (preset: StrategyPreset) => void
   onMarketChange: (marketId: string) => void
   onConfigChange: (config: StrategyConfigType) => void
   onSave: () => void
@@ -769,6 +867,8 @@ function StrategyConfigForm({
   markets,
   selectedMarket,
   config,
+  preset,
+  onPresetChange,
   onMarketChange,
   onConfigChange,
   onSave,
@@ -801,12 +901,26 @@ function StrategyConfigForm({
   }
 
   const updateOrderManagement = (updates: Partial<StrategyConfigType['orderManagement']>) => {
-    updateConfig({
-      orderManagement: {
-        ...config.orderManagement,
-        ...updates,
-      },
-    })
+    // When enabling "Sell Above Buy Price", force order type to Limit (Spot)
+    if (updates.onlySellAboveBuyPrice === true) {
+      updateConfig({
+        orderManagement: {
+          ...config.orderManagement,
+          ...updates,
+        },
+        orderConfig: {
+          ...config.orderConfig,
+          orderType: 'Spot', // Force Limit orders when sell above buy is enabled
+        },
+      })
+    } else {
+      updateConfig({
+        orderManagement: {
+          ...config.orderManagement,
+          ...updates,
+        },
+      })
+    }
   }
 
   const updateRiskManagement = (updates: Partial<StrategyConfigType['riskManagement']>) => {
@@ -855,18 +969,45 @@ function StrategyConfigForm({
         </div>
       </div>
 
+      {/* Preset Mode Tabs */}
+      <div className="preset-tabs">
+        {(['simple', 'volumeMaximizing', 'profitTaking', 'custom'] as StrategyPreset[]).map((presetKey) => (
+          <div
+            key={presetKey}
+            className={`preset-tab ${preset === presetKey ? 'active' : ''}`}
+            onClick={() => onPresetChange(presetKey)}
+          >
+            <div className="preset-tab-name">{STRATEGY_PRESET_LABELS[presetKey]}</div>
+            <div className="preset-tab-desc">{STRATEGY_PRESET_DESCRIPTIONS[presetKey]}</div>
+          </div>
+        ))}
+      </div>
+
       <div className="form-divider" />
 
       {/* Row 2: Order Type, Price Mode, Side */}
       <div className="form-row">
         <div className="form-field">
-          <label className="label-with-tooltip">Order Type <Tooltip text={TOOLTIPS.orderType} position="left" /></label>
+          <label className="label-with-tooltip">
+            Order Type <Tooltip text={TOOLTIPS.orderType} position="left" />
+            {config.orderManagement.onlySellAboveBuyPrice && (
+              <span className="field-locked-indicator" title="Forced to Limit when 'Sell Above Buy' is enabled">🔒</span>
+            )}
+          </label>
           <div className="select-wrapper">
-            <select value={config.orderConfig.orderType} onChange={(e) => updateOrderConfig({ orderType: e.target.value as any })}>
+            <select
+              value={config.orderConfig.orderType}
+              onChange={(e) => updateOrderConfig({ orderType: e.target.value as any })}
+              disabled={config.orderManagement.onlySellAboveBuyPrice}
+              className={config.orderManagement.onlySellAboveBuyPrice ? 'disabled-locked' : ''}
+            >
               <option value="Market">Market</option>
               <option value="Spot">Limit</option>
             </select>
           </div>
+          {config.orderManagement.onlySellAboveBuyPrice && (
+            <small className="field-hint">Limit required for sell above buy</small>
+          )}
         </div>
         <div className="form-field">
           <label className="label-with-tooltip">Price Mode <Tooltip text={TOOLTIPS.priceMode} /></label>
@@ -893,46 +1034,32 @@ function StrategyConfigForm({
       <div className="form-row">
         <div className="form-field">
           <label className="label-with-tooltip">Price Offset % <Tooltip text={TOOLTIPS.priceOffsetPercent} position="left" /></label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            max="50"
+          <NumberInput
             value={config.orderConfig.priceOffsetPercent}
-            onChange={(e) => {
-              const value = parseFloat(e.target.value) || 0
-              // Clamp to safe range: 0-50% (negative would buy high/sell low)
-              updateOrderConfig({ priceOffsetPercent: Math.max(0, Math.min(50, value)) })
-            }}
+            onChange={(value) => updateOrderConfig({ priceOffsetPercent: value })}
+            min={0}
+            max={50}
+            step={0.01}
           />
         </div>
         <div className="form-field">
           <label className="label-with-tooltip">Max Spread % <Tooltip text={TOOLTIPS.maxSpreadPercent} /></label>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="100"
+          <NumberInput
             value={config.orderConfig.maxSpreadPercent}
-            onChange={(e) => {
-              const value = parseFloat(e.target.value) || 0
-              // Clamp to safe range: 0-100%
-              updateOrderConfig({ maxSpreadPercent: Math.max(0, Math.min(100, value)) })
-            }}
+            onChange={(value) => updateOrderConfig({ maxSpreadPercent: value })}
+            min={0}
+            max={100}
+            step={0.1}
           />
         </div>
         <div className="form-field">
           <label className="label-with-tooltip">Max Open Orders <Tooltip text={TOOLTIPS.maxOpenOrders} position="right" /></label>
-          <input
-            type="number"
-            min="1"
-            max="50"
+          <NumberInput
             value={config.orderManagement.maxOpenOrders}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || 2
-              // Clamp to safe range: 1-50
-              updateOrderManagement({ maxOpenOrders: Math.max(1, Math.min(50, value)) })
-            }}
+            onChange={(value) => updateOrderManagement({ maxOpenOrders: value })}
+            min={1}
+            max={50}
+            isInteger
           />
         </div>
       </div>
@@ -953,17 +1080,34 @@ function StrategyConfigForm({
           <>
             <div className="form-field">
               <label className="label-with-tooltip">{markets.find(m => m.market_id === selectedMarket)?.base.symbol || 'Base'} Balance % <Tooltip text={TOOLTIPS.baseBalancePercent} /></label>
-              <input type="number" min="0" max="100" step="1" value={config.positionSizing.baseBalancePercentage ?? config.positionSizing.balancePercentage} onChange={(e) => updatePositionSizing({ baseBalancePercentage: parseFloat(e.target.value) || 0 })} />
+              <NumberInput
+                value={config.positionSizing.baseBalancePercentage ?? config.positionSizing.balancePercentage}
+                onChange={(value) => updatePositionSizing({ baseBalancePercentage: value })}
+                min={0}
+                max={100}
+                step={1}
+              />
             </div>
             <div className="form-field">
               <label className="label-with-tooltip">{markets.find(m => m.market_id === selectedMarket)?.quote.symbol || 'Quote'} Balance % <Tooltip text={TOOLTIPS.quoteBalancePercent} position="right" /></label>
-              <input type="number" min="0" max="100" step="1" value={config.positionSizing.quoteBalancePercentage ?? config.positionSizing.balancePercentage} onChange={(e) => updatePositionSizing({ quoteBalancePercentage: parseFloat(e.target.value) || 0 })} />
+              <NumberInput
+                value={config.positionSizing.quoteBalancePercentage ?? config.positionSizing.balancePercentage}
+                onChange={(value) => updatePositionSizing({ quoteBalancePercentage: value })}
+                min={0}
+                max={100}
+                step={1}
+              />
             </div>
           </>
         ) : (
           <div className="form-field flex-2">
             <label className="label-with-tooltip">Fixed Amount (USD) <Tooltip text={TOOLTIPS.fixedUsdAmount} /></label>
-            <input type="number" min="0" step="0.01" value={config.positionSizing.fixedUsdAmount || 0} onChange={(e) => updatePositionSizing({ fixedUsdAmount: parseFloat(e.target.value) || 0 })} />
+            <NumberInput
+              value={config.positionSizing.fixedUsdAmount || 0}
+              onChange={(value) => updatePositionSizing({ fixedUsdAmount: value })}
+              min={0}
+              step={0.01}
+            />
           </div>
         )}
       </div>
@@ -971,7 +1115,12 @@ function StrategyConfigForm({
       <div className="form-row">
         <div className="form-field">
           <label className="label-with-tooltip">Min Order (USD) <Tooltip text={TOOLTIPS.minOrderSizeUsd} position="left" /></label>
-          <input type="number" min="0" step="0.01" value={config.positionSizing.minOrderSizeUsd} onChange={(e) => updatePositionSizing({ minOrderSizeUsd: parseFloat(e.target.value) || 5 })} />
+          <NumberInput
+            value={config.positionSizing.minOrderSizeUsd}
+            onChange={(value) => updatePositionSizing({ minOrderSizeUsd: value })}
+            min={0}
+            step={0.01}
+          />
         </div>
         <div className="form-field">
           <label className="label-with-tooltip">Max Order (USD) <Tooltip text={TOOLTIPS.maxOrderSizeUsd} /></label>
@@ -980,9 +1129,21 @@ function StrategyConfigForm({
         <div className="form-field">
           <label className="label-with-tooltip">Cycle Interval (ms) <Tooltip text={TOOLTIPS.cycleInterval} position="right" /></label>
           <div className="inline-inputs">
-            <input type="number" min="1000" step="100" value={config.timing.cycleIntervalMinMs} onChange={(e) => updateTiming({ cycleIntervalMinMs: parseInt(e.target.value) || 3000 })} />
+            <NumberInput
+              value={config.timing.cycleIntervalMinMs}
+              onChange={(value) => updateTiming({ cycleIntervalMinMs: value })}
+              min={100}
+              step={100}
+              isInteger
+            />
             <span className="separator">-</span>
-            <input type="number" min="1000" step="100" value={config.timing.cycleIntervalMaxMs} onChange={(e) => updateTiming({ cycleIntervalMaxMs: parseInt(e.target.value) || 5000 })} />
+            <NumberInput
+              value={config.timing.cycleIntervalMaxMs}
+              onChange={(value) => updateTiming({ cycleIntervalMaxMs: value })}
+              min={100}
+              step={100}
+              isInteger
+            />
           </div>
         </div>
       </div>
@@ -998,7 +1159,13 @@ function StrategyConfigForm({
         </label>
         <div className="form-field compact">
           <label className="label-with-tooltip">Take Profit % <Tooltip text={TOOLTIPS.takeProfitPercent} /></label>
-          <input type="number" min="0" step="0.01" value={config.riskManagement?.takeProfitPercent ?? 0.02} onChange={(e) => updateRiskManagement({ takeProfitPercent: parseFloat(e.target.value) || 0.02 })} disabled={!config.orderManagement.onlySellAboveBuyPrice} />
+          <NumberInput
+            value={config.riskManagement?.takeProfitPercent ?? 0.02}
+            onChange={(value) => updateRiskManagement({ takeProfitPercent: value })}
+            min={0}
+            step={0.01}
+            disabled={!config.orderManagement.onlySellAboveBuyPrice}
+          />
         </div>
       </div>
 
@@ -1009,17 +1176,12 @@ function StrategyConfigForm({
         </label>
         {config.riskManagement?.stopLossEnabled && (
           <div className="form-field compact">
-            <input
-              type="number"
-              min="0.1"
-              max="100"
-              step="0.1"
+            <NumberInput
               value={config.riskManagement?.stopLossPercent ?? 5}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value) || 5
-                // Clamp to safe range: 0.1-100% (must be positive)
-                updateRiskManagement({ stopLossPercent: Math.max(0.1, Math.min(100, value)) })
-              }}
+              onChange={(value) => updateRiskManagement({ stopLossPercent: value })}
+              min={0.1}
+              max={100}
+              step={0.1}
             />
             <span className="suffix">%</span>
           </div>
@@ -1030,17 +1192,13 @@ function StrategyConfigForm({
         </label>
         {config.riskManagement?.orderTimeoutEnabled && (
           <div className="form-field compact">
-            <input
-              type="number"
-              min="1"
-              max="1440"
-              step="1"
+            <NumberInput
               value={config.riskManagement?.orderTimeoutMinutes ?? 30}
-              onChange={(e) => {
-                const value = parseInt(e.target.value) || 30
-                // Clamp to safe range: 1-1440 minutes (max 24 hours)
-                updateRiskManagement({ orderTimeoutMinutes: Math.max(1, Math.min(1440, value)) })
-              }}
+              onChange={(value) => updateRiskManagement({ orderTimeoutMinutes: value })}
+              min={1}
+              max={1440}
+              step={1}
+              isInteger
             />
             <span className="suffix">min</span>
           </div>
@@ -1055,7 +1213,12 @@ function StrategyConfigForm({
         {config.riskManagement?.maxDailyLossEnabled && (
           <div className="form-field compact">
             <span className="prefix">$</span>
-            <input type="number" min="0" step="1" value={config.riskManagement?.maxDailyLossUsd ?? 100} onChange={(e) => updateRiskManagement({ maxDailyLossUsd: parseFloat(e.target.value) || 100 })} />
+            <NumberInput
+              value={config.riskManagement?.maxDailyLossUsd ?? 100}
+              onChange={(value) => updateRiskManagement({ maxDailyLossUsd: value })}
+              min={0}
+              step={1}
+            />
           </div>
         )}
         {config.dailyPnL && (

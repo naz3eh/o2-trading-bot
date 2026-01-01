@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { WagmiProvider } from 'wagmi'
-import WalletConnect from './components/WalletConnect'
 import Dashboard from './components/Dashboard'
 import { WalletConnectionWatcher } from './components/WalletConnectionWatcher'
 import { walletService, wagmiConfig } from './services/walletService'
@@ -46,11 +45,10 @@ function App() {
       <ToastProvider>
         <WalletConnectionWatcher />
         <div className="app">
-          {!connectedWallet ? (
-            <WalletConnect onConnect={() => {}} />
-          ) : (
-            <Dashboard onDisconnect={() => walletService.disconnect()} />
-          )}
+          <Dashboard
+            isWalletConnected={!!connectedWallet}
+            onDisconnect={() => walletService.disconnect()}
+          />
         </div>
       </ToastProvider>
     </WagmiProvider>

@@ -80,9 +80,19 @@
   transition: all 0.2s;
 }
 
-.wallet-chip:hover {
+.wallet-chip:hover:not(:disabled) {
   background: var(--muted);
   border-color: var(--muted-foreground);
+}
+
+.wallet-chip.connecting {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.wallet-chip.connecting:hover {
+  background: var(--background);
+  border-color: var(--border);
 }
 
 .wallet-dot {
@@ -91,6 +101,11 @@
   background: var(--success);
   border-radius: 50%;
   animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.wallet-dot.connecting {
+  background: var(--warning);
+  animation: pulse-dot 1s ease-in-out infinite;
 }
 
 @keyframes pulse-dot {
@@ -675,6 +690,65 @@
 
 .config-item .inactive {
   color: var(--muted-foreground);
+}
+
+/* Connect Wallet Header Button */
+.connect-wallet-header-button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connect-wallet-header-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Connect Wallet variant of Start Trading button */
+.start-button.connect-wallet-variant {
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.start-button.connect-wallet-variant:hover {
+  opacity: 0.9;
+}
+
+/* Error retry button */
+.start-button.error-retry {
+  background: var(--destructive, #dc2626);
+  cursor: pointer;
+}
+
+.start-button.error-retry:hover {
+  opacity: 0.9;
+  background: var(--destructive, #b91c1c);
+}
+
+/* Auth loading indicator */
+.auth-loading-indicator {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: auth-spin 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Responsive Design */

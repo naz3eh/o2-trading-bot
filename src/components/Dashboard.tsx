@@ -7,7 +7,7 @@ import { marketService } from '../services/marketService'
 import { authFlowService } from '../services/authFlowService'
 import { tradingSessionService } from '../services/tradingSessionService'
 import { useToast } from './ToastProvider'
-import AuthFlowGuard from './AuthFlowGuard'
+import AuthFlowOverlay from './AuthFlowOverlay'
 import TradingAccount from './TradingAccount'
 import EligibilityCheck from './EligibilityCheck'
 import MarketSelector from './MarketSelector'
@@ -19,6 +19,7 @@ import TradeConsole from './TradeConsole'
 import CompetitionPanel from './CompetitionPanel'
 import WelcomeModal from './WelcomeModal'
 import DepositDialog from './DepositDialog'
+import ConnectWalletDialog from './ConnectWalletDialog'
 import { balanceService } from '../services/balanceService'
 import { TradingAccountBalances } from '../types/tradingAccount'
 import { filterMarkets } from '../utils/marketFilters'
@@ -26,10 +27,11 @@ import { db } from '../services/dbService'
 import './Dashboard.css'
 
 interface DashboardProps {
+  isWalletConnected: boolean
   onDisconnect: () => void
 }
 
-export default function Dashboard({ onDisconnect }: DashboardProps) {
+export default function Dashboard({ isWalletConnected, onDisconnect }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'trades'>('dashboard')
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [tradingAccount, setTradingAccount] = useState<any>(null)
@@ -42,9 +44,27 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
   const [showStrategyRecommendation, setShowStrategyRecommendation] = useState(false)
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [showDepositDialog, setShowDepositDialog] = useState(false)
+  const [showConnectWalletDialog, setShowConnectWalletDialog] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
+  const [authState, setAuthState] = useState<string>('idle')
   const { addToast } = useToast()
   const strategyCreateNewRef = useRef<(() => void) | null>(null)
   const strategyImportRef = useRef<(() => void) | null>(null)
+
+  // Reset auth state when wallet disconnects
+  useEffect(() => {
+    if (!isWalletConnected) {
+      setAuthReady(false)
+      setAuthState('idle')
+      setWalletAddress(null)
+      setTradingAccount(null)
+      setIsEligible(null)
+      setBalances(null)
+      setHasResumableSession(false)
+      // Reset auth flow service
+      authFlowService.reset()
+    }
+  }, [isWalletConnected])
 
   // Fetch data when auth flow is ready (no duplicate initialization)
   useEffect(() => {
@@ -254,10 +274,68 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
+  // Get descriptive message based on auth flow state
+  const getAuthStateMessage = (state: string): string => {
+    switch (state) {
+      case 'idle':
+        return 'Initializing...'
+      case 'checkingSituation':
+        return 'Checking eligibility...'
+      case 'checkingTerms':
+        return 'Checking terms...'
+      case 'awaitingTerms':
+        return 'Accept terms to continue'
+      case 'verifyingAccessQueue':
+        return 'Verifying access...'
+      case 'displayingAccessQueue':
+        return 'In access queue'
+      case 'awaitingInvitation':
+        return 'Enter invitation code'
+      case 'creatingSession':
+        return 'Awaiting signature...'
+      case 'awaitingWelcome':
+        return 'Almost ready...'
+      case 'error':
+        return 'Error - retry'
+      default:
+        return 'Setting up...'
+    }
+  }
+
+  // Callbacks for auth flow overlay
+  const handleAuthReady = () => {
+    setAuthReady(true)
+  }
+
+  const handleAuthStateChange = (state: string, isWhitelisted: boolean | null) => {
+    setAuthState(state)
+    if (isWhitelisted !== null) {
+      setIsEligible(isWhitelisted)
+    }
+    // If user dismissed the invitation/queue dialog, treat as "ready but not whitelisted"
+    // This allows them to browse the dashboard without seeing "Setting up..." forever
+    if (state === 'dismissed') {
+      setAuthReady(true)
+      setIsEligible(false)
+    }
+  }
+
   return (
-    <AuthFlowGuard>
-      <div className="dashboard">
-        <div className="dashboard-header">
+    <div className="dashboard">
+      {/* Non-blocking auth flow overlay - only render when wallet is connected */}
+      {isWalletConnected && (
+        <AuthFlowOverlay
+          onAuthReady={handleAuthReady}
+          onAuthStateChange={handleAuthStateChange}
+        />
+      )}
+
+      {/* Connect Wallet Dialog */}
+      {showConnectWalletDialog && (
+        <ConnectWalletDialog onClose={() => setShowConnectWalletDialog(false)} />
+      )}
+
+      <div className="dashboard-header">
           <h1>o2 Trading Bot <span className="alpha-badge">Alpha</span></h1>
           <div className="header-tabs">
             <button
@@ -287,16 +365,32 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
             >
               ?
             </button>
-            {walletAddress && (
-              <button className="wallet-chip" onClick={handleCopyAddress} title={walletAddress}>
-                <span className="wallet-dot"></span>
-                <span className="wallet-address-text">{formatAddress(walletAddress)}</span>
-                <span className="copy-icon">{copied ? '✓' : '⧉'}</span>
+            {isWalletConnected ? (
+              walletAddress ? (
+                <>
+                  <button className="wallet-chip" onClick={handleCopyAddress} title={walletAddress}>
+                    <span className="wallet-dot"></span>
+                    <span className="wallet-address-text">{formatAddress(walletAddress)}</span>
+                    <span className="copy-icon">{copied ? '✓' : '⧉'}</span>
+                  </button>
+                  <button onClick={handleDisconnect} className="disconnect-button">
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button className="wallet-chip connecting" disabled>
+                  <span className="wallet-dot connecting"></span>
+                  <span className="wallet-address-text">Connecting...</span>
+                </button>
+              )
+            ) : (
+              <button
+                className="connect-wallet-header-button"
+                onClick={() => setShowConnectWalletDialog(true)}
+              >
+                Connect Wallet
               </button>
             )}
-            <button onClick={handleDisconnect} className="disconnect-button">
-              Disconnect
-            </button>
           </div>
         </div>
 
@@ -310,21 +404,40 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
                 <TradingAccount account={tradingAccount} />
 
                 <div className="trading-controls">
-                  {isEligible === false && (
+                  {isWalletConnected && isEligible === false && (
                     <div className="not-whitelisted-banner">
                       <span className="not-whitelisted-text">
                         Not whitelisted to trade
                       </span>
                     </div>
                   )}
-                  {showStrategyRecommendation && isEligible !== false && (
+                  {isWalletConnected && showStrategyRecommendation && isEligible !== false && authReady && (
                     <div className="strategy-recommendation-banner">
                       <span className="recommendation-text">
                         No active strategy configured. Please create and activate a strategy in the Strategy Configuration section below before starting trading.
                       </span>
                     </div>
                   )}
-                  {!isTrading ? (
+                  {!isWalletConnected ? (
+                    <button
+                      className="start-button connect-wallet-variant"
+                      onClick={() => setShowConnectWalletDialog(true)}
+                    >
+                      Connect Wallet to Trade
+                    </button>
+                  ) : authState === 'error' ? (
+                    <button
+                      className="start-button error-retry"
+                      onClick={() => authFlowService.startFlow()}
+                    >
+                      Error - Click to Retry
+                    </button>
+                  ) : !authReady ? (
+                    <button className="start-button" disabled>
+                      <span className="auth-loading-indicator"></span>
+                      {getAuthStateMessage(authState)}
+                    </button>
+                  ) : !isTrading ? (
                     hasResumableSession ? (
                       <div className="trading-buttons-group">
                         <button
@@ -447,8 +560,7 @@ export default function Dashboard({ onDisconnect }: DashboardProps) {
         }}
         tradingAccountId={tradingAccount?.id}
       />
-      </div>
-    </AuthFlowGuard>
+    </div>
   )
 }
 

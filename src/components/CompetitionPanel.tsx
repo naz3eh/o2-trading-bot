@@ -230,7 +230,7 @@ export default function CompetitionPanel({ walletAddress }: CompetitionPanelProp
         {/* Right side: Time remaining + Reward pool */}
         <div className="competition-right">
           <div className="competition-time">
-            <span className="time-label">Ends in</span>
+            <span className="time-label">Competition Ends in</span>
             <span className="time-value">{timeRemaining}</span>
           </div>
 

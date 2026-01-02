@@ -35,15 +35,22 @@ export interface TradingContext {
   totalFees: number
   realizedPnL: number
   tradeCount: number
+  // Starting balances (from session)
+  startingBaseBalance: string | null   // "0.5 ETH"
+  startingQuoteBalance: string | null  // "$100.00"
+  // Strategy info
+  strategyName: string | null  // "Simple Mode"
 }
 
 type ContextCallback = (context: TradingContext) => void
+type MultiContextCallback = (contexts: Map<string, TradingContext>) => void
 
 interface MarketConfig {
   market: Market
   config: StrategyConfig
   nextRunAt: number
   intervalId?: number
+  sessionId?: string
 }
 
 class TradingEngine {
@@ -55,8 +62,10 @@ class TradingEngine {
   private onTradeCompleteCallbacks: TradeCallback[] = []
   private onStatusCallbacks: StatusCallback[] = []
   private onContextCallbacks: ContextCallback[] = []
+  private onMultiContextCallbacks: MultiContextCallback[] = []
   private transactionLock: boolean = false
   private lastContext: TradingContext | null = null
+  private marketContexts: Map<string, TradingContext> = new Map()
 
   private emitStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
     this.onStatusCallbacks.forEach((callback) => {
@@ -70,11 +79,23 @@ class TradingEngine {
 
   private emitContext(context: TradingContext): void {
     this.lastContext = context
+    this.marketContexts.set(context.pair, context)
     this.onContextCallbacks.forEach((callback) => {
       try {
         callback(context)
       } catch (error) {
         console.error('Error in context callback:', error)
+      }
+    })
+    this.emitMultiContext()
+  }
+
+  private emitMultiContext(): void {
+    this.onMultiContextCallbacks.forEach((callback) => {
+      try {
+        callback(this.marketContexts)
+      } catch (error) {
+        console.error('Error in multi-context callback:', error)
       }
     })
   }
@@ -95,6 +116,24 @@ class TradingEngine {
 
   getLastContext(): TradingContext | null {
     return this.lastContext
+  }
+
+  onMultiContext(callback: MultiContextCallback): () => void {
+    this.onMultiContextCallbacks.push(callback)
+    // Immediately emit current contexts if available
+    if (this.marketContexts.size > 0) {
+      callback(this.marketContexts)
+    }
+    return () => {
+      const index = this.onMultiContextCallbacks.indexOf(callback)
+      if (index > -1) {
+        this.onMultiContextCallbacks.splice(index, 1)
+      }
+    }
+  }
+
+  getMarketContexts(): Map<string, TradingContext> {
+    return this.marketContexts
   }
 
   getNextRunTime(): number | null {
@@ -177,19 +216,44 @@ class TradingEngine {
         )
         if (existingSession) {
           session = await tradingSessionService.resumeSession(existingSession.id)
+          marketConfig.sessionId = session?.id
           console.log(`[TradingEngine] Resumed session: ${session?.id} (${session?.tradeCount} trades, $${session?.totalVolume.toFixed(2)} volume)`)
         }
       }
 
       // If not resuming or no session to resume, create new
       if (!session) {
+        // Fetch starting balances for new session
+        let startingBaseBalance: string | undefined
+        let startingQuoteBalance: string | undefined
+        try {
+          const balances = await balanceService.getMarketBalances(
+            marketConfig.market,
+            this.tradingAccountId!,
+            this.ownerAddress!
+          )
+          const baseBalanceHuman = new Decimal(balances.base.unlocked).div(10 ** marketConfig.market.base.decimals)
+          const quoteBalanceHuman = new Decimal(balances.quote.unlocked).div(10 ** marketConfig.market.quote.decimals)
+          startingBaseBalance = baseBalanceHuman.toFixed(6).replace(/\.?0+$/, '')
+          startingQuoteBalance = quoteBalanceHuman.toFixed(2)
+        } catch (error) {
+          console.error(`[TradingEngine] ❌ Failed to fetch starting balances for ${marketPair}:`, error)
+          this.emitStatus(`${marketPair}: Could not capture starting balance`, 'warning')
+        }
+
+        const strategyName = marketConfig.config.name || 'Custom'
+
         session = await tradingSessionService.getOrCreateSession(
           this.ownerAddress!,
           marketId,
           marketPair,
-          !resumeSession // forceNew if not resuming
+          !resumeSession, // forceNew if not resuming
+          startingBaseBalance,
+          startingQuoteBalance,
+          strategyName
         )
-        console.log(`[TradingEngine] New session: ${session.id}`)
+        marketConfig.sessionId = session.id
+        console.log(`[TradingEngine] New session: ${session.id} (starting: ${startingBaseBalance} ${marketConfig.market.base.symbol} + $${startingQuoteBalance})`)
       }
 
       // Set nextRunAt to now for immediate execution (better UX)
@@ -211,12 +275,13 @@ class TradingEngine {
     this.isRunning = false
     this.transactionLock = false
 
-    // Pause the current trading session (async, fire and forget)
-    const sessionId = tradingSessionService.getCurrentSessionId()
-    if (sessionId) {
-      tradingSessionService.pauseSession(sessionId).catch(err =>
-        console.error('[TradingEngine] Failed to pause session:', err)
-      )
+    // Pause all market sessions (async, fire and forget)
+    for (const marketConfig of this.marketConfigs.values()) {
+      if (marketConfig.sessionId) {
+        tradingSessionService.pauseSession(marketConfig.sessionId).catch(err =>
+          console.error('[TradingEngine] Failed to pause session:', err)
+        )
+      }
     }
 
     // Stop all order fulfillment polling
@@ -369,12 +434,16 @@ class TradingEngine {
 
           const nextRunIn = marketConfig.nextRunAt ? Math.max(0, Math.round((marketConfig.nextRunAt - Date.now()) / 1000)) : 0
 
-          // Get session metrics
-          const currentSession = await tradingSessionService.getCurrentSession()
+          // Get session metrics for THIS specific market
+          const currentSession = marketConfig.sessionId
+            ? await tradingSessionService.getSessionById(marketConfig.sessionId)
+            : null
+
+          const baseSymbol = marketConfig.market.base.symbol
 
           const context: TradingContext = {
             pair,
-            baseBalance: `${baseBalanceHuman.toFixed(6).replace(/\.?0+$/, '')} ${marketConfig.market.base.symbol}`,
+            baseBalance: `${baseBalanceHuman.toFixed(6).replace(/\.?0+$/, '')} ${baseSymbol}`,
             quoteBalance: `$${quoteBalanceHuman.toFixed(2)}`,
             lastBuyPrice: marketConfig.config.averageBuyPrice ? `$${new Decimal(marketConfig.config.averageBuyPrice).toFixed(marketConfig.market.quote.decimals).replace(/\.?0+$/, '')}` : null,
             currentPrice: currentPrice ? `$${currentPrice}` : null,
@@ -388,7 +457,16 @@ class TradingEngine {
             totalVolume: currentSession?.totalVolume || 0,
             totalFees: currentSession?.totalFees || 0,
             realizedPnL: currentSession?.realizedPnL || 0,
-            tradeCount: currentSession?.tradeCount || 0
+            tradeCount: currentSession?.tradeCount || 0,
+            // Starting balances (from session)
+            startingBaseBalance: currentSession?.startingBaseBalance
+              ? `${currentSession.startingBaseBalance} ${baseSymbol}`
+              : null,
+            startingQuoteBalance: currentSession?.startingQuoteBalance
+              ? `$${currentSession.startingQuoteBalance}`
+              : null,
+            // Strategy info - prefer current config name over session (user may have renamed)
+            strategyName: marketConfig.config.name || currentSession?.strategyName || null,
           }
           this.emitContext(context)
 
@@ -557,20 +635,20 @@ class TradingEngine {
 
               this.emitStatus(statusMsg, 'success')
 
-              // Record trade in session
-              const sessionId = tradingSessionService.getCurrentSessionId()
-              if (sessionId) {
+              // Record trade in THIS MARKET's session (not global current session)
+              const marketSessionId = marketConfig.sessionId
+              if (marketSessionId) {
                 const tradePrice = fillPriceHuman || orderExec.priceHuman || '0'
                 const tradeQty = filledQtyHuman || orderExec.quantityHuman || '0'
-                await tradingSessionService.recordTrade(sessionId, {
+                await tradingSessionService.recordTrade(marketSessionId, {
                   orderId: orderExec.orderId,
                   side: orderExec.side as 'Buy' | 'Sell',
                   price: tradePrice,
                   quantity: tradeQty,
                   marketPair: pair
                 })
-                // Also record the status message
-                await tradingSessionService.addConsoleMessage(sessionId, statusMsg, 'success')
+                // Also record the status message to this market's session
+                await tradingSessionService.addConsoleMessage(marketSessionId, statusMsg, 'success')
               }
             } else {
               console.error(`[TradingEngine] Order failed: ${orderExec.side} - ${orderExec.error}`)

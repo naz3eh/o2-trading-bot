@@ -9,7 +9,14 @@ class TradingSessionService {
   /**
    * Create a new trading session
    */
-  async createSession(ownerAddress: string, marketId: string, marketPair: string): Promise<TradingSession> {
+  async createSession(
+    ownerAddress: string,
+    marketId: string,
+    marketPair: string,
+    startingBaseBalance?: string,
+    startingQuoteBalance?: string,
+    strategyName?: string
+  ): Promise<TradingSession> {
     // End any existing active OR paused sessions for this market (clean slate for new session)
     await this.endAllResumableSessions(ownerAddress, marketId)
 
@@ -33,6 +40,9 @@ class TradingSessionService {
       trades: [],
       consoleMessages: [],
       lastContext: null,
+      startingBaseBalance: startingBaseBalance || '0',
+      startingQuoteBalance: startingQuoteBalance || '0',
+      strategyName: strategyName || 'Custom',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
@@ -62,7 +72,15 @@ class TradingSessionService {
    * Get or create session (only creates new if no active session exists)
    * Does NOT resume paused sessions - use resumeSession for that
    */
-  async getOrCreateSession(ownerAddress: string, marketId: string, marketPair: string, forceNew: boolean = false): Promise<TradingSession> {
+  async getOrCreateSession(
+    ownerAddress: string,
+    marketId: string,
+    marketPair: string,
+    forceNew: boolean = false,
+    startingBaseBalance?: string,
+    startingQuoteBalance?: string,
+    strategyName?: string
+  ): Promise<TradingSession> {
     if (!forceNew) {
       // Check for active session first
       const activeSession = await this.getActiveSession(ownerAddress, marketId)
@@ -73,7 +91,14 @@ class TradingSessionService {
     }
 
     // Create new session (this will end any existing active session)
-    const session = await this.createSession(ownerAddress, marketId, marketPair)
+    const session = await this.createSession(
+      ownerAddress,
+      marketId,
+      marketPair,
+      startingBaseBalance,
+      startingQuoteBalance,
+      strategyName
+    )
     return session
   }
 
@@ -314,6 +339,13 @@ class TradingSessionService {
   }
 
   /**
+   * Get session by ID
+   */
+  async getSessionById(sessionId: string): Promise<TradingSession | null> {
+    return await db.tradingSessions.get(sessionId) || null
+  }
+
+  /**
    * Get current session ID
    */
   getCurrentSessionId(): string | null {
@@ -358,6 +390,17 @@ class TradingSessionService {
       .sortBy('updatedAt')
 
     return sessions[0] || null
+  }
+
+  /**
+   * Get ALL resumable sessions (active or paused) for a user - supports multi-market
+   */
+  async getAllResumableSessions(ownerAddress: string): Promise<TradingSession[]> {
+    return db.tradingSessions
+      .where('ownerAddress')
+      .equals(ownerAddress)
+      .and(s => s.status === 'active' || s.status === 'paused')
+      .toArray()
   }
 
   /**

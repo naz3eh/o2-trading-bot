@@ -45,6 +45,7 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [showDepositDialog, setShowDepositDialog] = useState(false)
   const [showConnectWalletDialog, setShowConnectWalletDialog] = useState(false)
+  const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [authState, setAuthState] = useState<string>('idle')
   const { addToast } = useToast()
@@ -255,6 +256,31 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
     addToast('Trading stopped', 'info')
   }
 
+  const handleNewSessionClick = () => {
+    setShowNewSessionConfirm(true)
+  }
+
+  const handleConfirmNewSession = async () => {
+    setShowNewSessionConfirm(false)
+
+    // Clear old session data - end all resumable sessions for this wallet
+    if (walletAddress) {
+      const session = await tradingSessionService.getResumableSession(walletAddress.toLowerCase())
+      if (session) {
+        await tradingSessionService.endSession(session.id)
+      }
+    }
+
+    // Clear the resumable session flag - this will show "Start Trading" button
+    setHasResumableSession(false)
+
+    addToast('Session cleared. Click Start Trading to begin.', 'info')
+  }
+
+  const handleCancelNewSession = () => {
+    setShowNewSessionConfirm(false)
+  }
+
   const handleDisconnect = async () => {
     await walletService.disconnect()
     onDisconnect()
@@ -454,7 +480,7 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
                           Resume Session
                         </button>
                         <button
-                          onClick={() => handleStartTrading(false)}
+                          onClick={handleNewSessionClick}
                           className="start-button new-session-button"
                           disabled={isEligible === false}
                         >
@@ -615,6 +641,29 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
         }}
         tradingAccountId={tradingAccount?.id}
       />
+
+      {/* New Session Confirmation Dialog */}
+      {showNewSessionConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <div className="confirm-dialog-header">
+              <h3>Create New Session</h3>
+            </div>
+            <div className="confirm-dialog-body">
+              <p>You are creating a new session. This will wipe all your old session data and start fresh.</p>
+              <p>Are you sure you want to proceed?</p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button onClick={handleCancelNewSession} className="cancel-btn">
+                Cancel
+              </button>
+              <button onClick={handleConfirmNewSession} className="confirm-btn">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

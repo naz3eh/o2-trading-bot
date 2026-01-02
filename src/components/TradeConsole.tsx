@@ -18,19 +18,20 @@ interface ConsoleMessage {
 export default function TradeConsole({ isTrading, onViewOrders }: TradeConsoleProps) {
   const [consoleCollapsed, setConsoleCollapsed] = useState(false)
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([])
-  const [context, setContext] = useState<TradingContext | null>(null)
+  const [contexts, setContexts] = useState<Map<string, TradingContext>>(new Map())
   const [countdown, setCountdown] = useState<number>(0)
   const [sessionRestored, setSessionRestored] = useState(false)
   const consoleRef = useRef<HTMLDivElement>(null)
 
-  // Track current session ID to detect new sessions
-  const currentSessionIdRef = useRef<string | null>(null)
 
-  // Restore session data on mount (before trading starts)
+  // Helper to get first context (for countdown and pending order display)
+  const firstContext = contexts.size > 0 ? Array.from(contexts.values())[0] : null
+
+  // Restore ALL session data on mount (before trading starts) - supports multi-market
   useEffect(() => {
     if (sessionRestored) return
 
-    const restoreSession = async () => {
+    const restoreSessions = async () => {
       try {
         const wallet = walletService.getConnectedWallet()
         if (!wallet) return
@@ -39,20 +40,24 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
           ? wallet.address.toLowerCase()
           : (wallet.address as any)?.toString?.().toLowerCase() || String(wallet.address).toLowerCase()
 
-        const session = await tradingSessionService.getResumableSession(walletAddress)
-        if (session) {
-          currentSessionIdRef.current = session.id
+        // Get ALL resumable sessions (not just one) to support multi-market
+        const sessions = await tradingSessionService.getAllResumableSessions(walletAddress)
 
-          // Restore console messages
-          if (session.consoleMessages && session.consoleMessages.length > 0) {
-            setConsoleMessages(session.consoleMessages)
+        if (sessions.length > 0) {
+          // Restore console messages from most recent session
+          const mostRecentSession = sessions.sort((a, b) => b.updatedAt - a.updatedAt)[0]
+          if (mostRecentSession.consoleMessages && mostRecentSession.consoleMessages.length > 0) {
+            setConsoleMessages(mostRecentSession.consoleMessages)
           }
 
-          // Restore context from session
-          if (session.lastContext) {
-            const restoredContext: TradingContext = {
+          // Build contexts Map from ALL sessions
+          const restoredContexts = new Map<string, TradingContext>()
+
+          for (const session of sessions) {
+            const baseSymbol = session.marketPair.split('/')[0]
+            const restoredContext: TradingContext = session.lastContext ? {
               pair: session.marketPair,
-              baseBalance: session.lastContext.baseBalance ? `${session.lastContext.baseBalance} ${session.marketPair.split('/')[0]}` : '-- --',
+              baseBalance: session.lastContext.baseBalance ? `${session.lastContext.baseBalance} ${baseSymbol}` : '-- --',
               quoteBalance: session.lastContext.quoteBalance ? `$${session.lastContext.quoteBalance}` : '$--',
               lastBuyPrice: session.lastContext.lastBuyPrice ? `$${session.lastContext.lastBuyPrice}` : null,
               currentPrice: session.lastContext.currentPrice ? `$${session.lastContext.currentPrice}` : null,
@@ -65,12 +70,11 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
               totalVolume: session.totalVolume,
               totalFees: session.totalFees,
               realizedPnL: session.realizedPnL,
-              tradeCount: session.tradeCount
-            }
-            setContext(restoredContext)
-          } else {
-            // Even without lastContext, restore session metrics
-            setContext({
+              tradeCount: session.tradeCount,
+              startingBaseBalance: session.startingBaseBalance ? `${session.startingBaseBalance} ${baseSymbol}` : null,
+              startingQuoteBalance: session.startingQuoteBalance ? `$${session.startingQuoteBalance}` : null,
+              strategyName: session.strategyName || null,
+            } : {
               pair: session.marketPair,
               baseBalance: '-- --',
               quoteBalance: '$--',
@@ -85,67 +89,30 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
               totalVolume: session.totalVolume,
               totalFees: session.totalFees,
               realizedPnL: session.realizedPnL,
-              tradeCount: session.tradeCount
-            })
+              tradeCount: session.tradeCount,
+              startingBaseBalance: session.startingBaseBalance ? `${session.startingBaseBalance} ${baseSymbol}` : null,
+              startingQuoteBalance: session.startingQuoteBalance ? `$${session.startingQuoteBalance}` : null,
+              strategyName: session.strategyName || null,
+            }
+            restoredContexts.set(session.marketPair, restoredContext)
           }
 
-          console.log('[TradeConsole] Restored session:', session.id, 'with', session.consoleMessages?.length || 0, 'messages')
+          setContexts(restoredContexts)
+          console.log('[TradeConsole] Restored', sessions.length, 'market session(s)')
         }
       } catch (error) {
-        console.error('[TradeConsole] Failed to restore session:', error)
+        console.error('[TradeConsole] Failed to restore sessions:', error)
       } finally {
         setSessionRestored(true)
       }
     }
 
-    restoreSession()
+    restoreSessions()
   }, [sessionRestored])
 
-  // Subscribe to session updates to detect new session creation
-  useEffect(() => {
-    const unsubscribe = tradingSessionService.onSessionUpdate((session) => {
-      if (session) {
-        // Check if this is a NEW session (different ID than what we had)
-        const isNewSession = currentSessionIdRef.current !== null &&
-                             currentSessionIdRef.current !== session.id
-
-        if (isNewSession) {
-          // Clear console and add "new session" message
-          setConsoleMessages([{
-            message: 'New trading session started',
-            type: 'info',
-            timestamp: Date.now()
-          }])
-
-          // Reset context with fresh session stats (Volume, P&L, Fees, Trades = 0)
-          setContext(prev => ({
-            pair: session.marketPair || prev?.pair || '',
-            baseBalance: prev?.baseBalance || '-- --',
-            quoteBalance: prev?.quoteBalance || '$--',
-            lastBuyPrice: prev?.lastBuyPrice || null,
-            currentPrice: prev?.currentPrice || null,
-            openBuyOrders: prev?.openBuyOrders || 0,
-            openSellOrders: prev?.openSellOrders || 0,
-            pendingSellOrder: prev?.pendingSellOrder || null,
-            profitProtectionEnabled: prev?.profitProtectionEnabled ?? true,
-            nextRunIn: prev?.nextRunIn || 0,
-            sessionId: session.id,
-            totalVolume: 0,
-            totalFees: 0,
-            realizedPnL: 0,
-            tradeCount: 0
-          }))
-
-          console.log('[TradeConsole] New session detected, reset stats and cleared console')
-        }
-
-        // Always update the ref to current session
-        currentSessionIdRef.current = session.id
-      }
-    })
-
-    return unsubscribe
-  }, [])
+  // NOTE: Session update listener removed - it was causing issues with multi-market support.
+  // Each market now has its own session, and the trading engine handles session management.
+  // Context updates come directly from tradingEngine.onMultiContext() which has all market data.
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -154,20 +121,20 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
     }
   }, [consoleMessages])
 
-  // Countdown timer
+  // Countdown timer - use first context's nextRunIn
   useEffect(() => {
-    if (!isTrading || !context?.nextRunIn) {
+    if (!isTrading || !firstContext?.nextRunIn) {
       setCountdown(0)
       return
     }
 
-    setCountdown(context.nextRunIn)
+    setCountdown(firstContext.nextRunIn)
     const interval = setInterval(() => {
       setCountdown(prev => Math.max(0, prev - 1))
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isTrading, context?.nextRunIn])
+  }, [isTrading, firstContext?.nextRunIn])
 
   useEffect(() => {
     if (!isTrading) {
@@ -184,9 +151,41 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
       })
     })
 
-    // Subscribe to context updates
-    const unsubscribeContext = tradingEngine.onContext((ctx) => {
-      setContext(ctx)
+    // Subscribe to multi-context updates (all markets)
+    const unsubscribeContext = tradingEngine.onMultiContext((ctxMap) => {
+      // Only update if there are actual changes to avoid unnecessary re-renders
+      setContexts(prevContexts => {
+        // If sizes differ, definitely update
+        if (prevContexts.size !== ctxMap.size) {
+          return new Map(ctxMap)
+        }
+
+        // Check if any values have changed
+        let hasChanges = false
+        for (const [key, newCtx] of ctxMap) {
+          const prevCtx = prevContexts.get(key)
+          if (!prevCtx) {
+            hasChanges = true
+            break
+          }
+          // Compare key fields that would affect display
+          if (prevCtx.currentPrice !== newCtx.currentPrice ||
+              prevCtx.baseBalance !== newCtx.baseBalance ||
+              prevCtx.quoteBalance !== newCtx.quoteBalance ||
+              prevCtx.totalVolume !== newCtx.totalVolume ||
+              prevCtx.totalFees !== newCtx.totalFees ||
+              prevCtx.realizedPnL !== newCtx.realizedPnL ||
+              prevCtx.tradeCount !== newCtx.tradeCount ||
+              prevCtx.nextRunIn !== newCtx.nextRunIn ||
+              prevCtx.openBuyOrders !== newCtx.openBuyOrders ||
+              prevCtx.openSellOrders !== newCtx.openSellOrders) {
+            hasChanges = true
+            break
+          }
+        }
+
+        return hasChanges ? new Map(ctxMap) : prevContexts
+      })
     })
 
     return () => {
@@ -202,6 +201,42 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
       minute: '2-digit',
       second: '2-digit'
     })
+  }
+
+  // Get any pending sell orders from all contexts
+  const pendingOrders = Array.from(contexts.values()).filter(ctx => ctx.pendingSellOrder)
+
+  // Calculate balance change percentage based on total USD value
+  const calculateBalanceChangePercent = (ctx: TradingContext): number | null => {
+    if (!ctx.startingQuoteBalance || !ctx.quoteBalance) return null
+
+    const startQuote = parseFloat(ctx.startingQuoteBalance.replace(/[$,]/g, ''))
+    const currentQuote = parseFloat(ctx.quoteBalance.replace(/[$,]/g, ''))
+    const startBase = parseFloat(ctx.startingBaseBalance?.split(' ')[0] || '0')
+    const currentBase = parseFloat(ctx.baseBalance?.split(' ')[0] || '0')
+    const price = parseFloat(ctx.currentPrice?.replace(/[$,]/g, '') || '0')
+
+    if (startQuote === 0 && startBase === 0) return null
+
+    // Calculate total USD value: quote + (base * price)
+    const startTotal = startQuote + (startBase * price)
+    const currentTotal = currentQuote + (currentBase * price)
+
+    if (startTotal === 0) return null
+    return ((currentTotal - startTotal) / startTotal) * 100
+  }
+
+  const formatBalanceChange = (ctx: TradingContext): string => {
+    const percent = calculateBalanceChangePercent(ctx)
+    if (percent === null) return '--'
+    const sign = percent >= 0 ? '+' : ''
+    return `${sign}${percent.toFixed(1)}%`
+  }
+
+  const getBalanceChangeClass = (ctx: TradingContext): string => {
+    const percent = calculateBalanceChangePercent(ctx)
+    if (percent === null) return ''
+    return percent >= 0 ? 'positive' : 'negative'
   }
 
   return (
@@ -225,49 +260,90 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
 
       {!consoleCollapsed && (
         <>
-          {/* Status Dashboard - show when we have context data */}
-          {context && (
-            <div className="console-dashboard">
-              <div className="dashboard-row">
-                <div className="dashboard-item">
-                  <span className="dashboard-label">Market</span>
-                  <span className="dashboard-value highlight">{context.pair}</span>
-                </div>
-                <div className="dashboard-item">
-                  <span className="dashboard-label">Price</span>
-                  <span className="dashboard-value">{context.currentPrice || '--'}</span>
-                </div>
-              </div>
+          {/* Multi-Market Status Dashboard */}
+          {contexts.size > 0 && (
+            <div className={`console-dashboard ${contexts.size > 1 ? 'multi-market' : ''}`}>
+              {Array.from(contexts.values()).map((ctx) => {
+                // Calculate total USD balance (base * price + quote)
+                const currentBaseVal = parseFloat(ctx.baseBalance?.split(' ')[0] || '0')
+                const currentQuoteVal = parseFloat(ctx.quoteBalance?.replace(/[$,]/g, '') || '0')
+                const priceVal = parseFloat(ctx.currentPrice?.replace(/[$,]/g, '') || '0')
+                const currentTotalUsd = (currentBaseVal * priceVal) + currentQuoteVal
 
-              <div className="dashboard-row session-metrics">
-                <div className="dashboard-item">
-                  <span className="dashboard-label">Volume</span>
-                  <span className="dashboard-value">${context.totalVolume?.toFixed(2) || '0.00'}</span>
-                </div>
-                <div className="dashboard-item">
-                  <span className="dashboard-label">P&L</span>
-                  <span className={`dashboard-value ${(context.realizedPnL || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
-                    {(context.realizedPnL || 0) >= 0 ? '+' : ''}${(context.realizedPnL || 0).toFixed(2)}
-                  </span>
-                </div>
-                <div className="dashboard-item">
-                  <span className="dashboard-label">Fees</span>
-                  <span className="dashboard-value fee">${context.totalFees?.toFixed(4) || '0.0000'}</span>
-                </div>
-                <div className="dashboard-item">
-                  <span className="dashboard-label">Trades</span>
-                  <span className="dashboard-value">{context.tradeCount || 0}</span>
-                </div>
-              </div>
+                const startBaseVal = parseFloat(ctx.startingBaseBalance?.split(' ')[0] || '0')
+                const startQuoteVal = parseFloat(ctx.startingQuoteBalance?.replace(/[$,]/g, '') || '0')
+                const startTotalUsd = (startBaseVal * priceVal) + startQuoteVal
 
+                return (
+                <div key={ctx.pair} className="market-stats-card">
+                  {/* Row 1: Market info */}
+                  <div className="market-header">
+                    <div className="market-info-item">
+                      <span className="info-label">Market:</span>
+                      <span className="info-value market-pair">{ctx.pair}</span>
+                    </div>
+                    <div className="market-info-item">
+                      <span className="info-label">Price:</span>
+                      <span className="info-value">{ctx.currentPrice || '--'}</span>
+                    </div>
+                    {ctx.strategyName && (
+                      <div className="market-info-item">
+                        <span className="info-label">Strategy:</span>
+                        <span className="info-value strategy-value">{ctx.strategyName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 2: Balance comparison - hidden for now
+                  <div className="balance-comparison">
+                    <div className="balance-item starting">
+                      <span className="balance-label">Starting</span>
+                      <span className="balance-value">
+                        {ctx.startingQuoteBalance ? `$${startTotalUsd.toFixed(2)}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="balance-arrow">→</div>
+                    <div className="balance-item current">
+                      <span className="balance-label">Current</span>
+                      <span className="balance-value">${currentTotalUsd.toFixed(2)}</span>
+                    </div>
+                    <div className={`balance-change ${getBalanceChangeClass(ctx)}`}>
+                      {formatBalanceChange(ctx)}
+                    </div>
+                  </div>
+                  */}
+
+                  {/* Row 3: Metrics */}
+                  <div className="market-metrics">
+                    <span className="metric">
+                      <span className="metric-label">Vol</span>
+                      <span className="metric-value">${ctx.totalVolume?.toFixed(2) || '0.00'}</span>
+                    </span>
+                    <span className="metric">
+                      <span className="metric-label">P&L</span>
+                      <span className={`metric-value ${(ctx.realizedPnL || 0) >= 0 ? 'pnl-positive' : 'pnl-negative'}`}>
+                        {(ctx.realizedPnL || 0) >= 0 ? '+' : ''}${(ctx.realizedPnL || 0).toFixed(2)}
+                      </span>
+                    </span>
+                    <span className="metric">
+                      <span className="metric-label">Fees</span>
+                      <span className="metric-value fee">${ctx.totalFees?.toFixed(4) || '0.0000'}</span>
+                    </span>
+                    <span className="metric">
+                      <span className="metric-label">Trades</span>
+                      <span className="metric-value">{ctx.tradeCount || 0}</span>
+                    </span>
+                  </div>
+                </div>
+              )})}
             </div>
           )}
 
-          {/* Pending Sell Order Strip - Fixed at top */}
-          {context?.pendingSellOrder && (
-            <div className="pending-order-strip">
+          {/* Pending Sell Order Strips - show for all markets with pending orders */}
+          {pendingOrders.map((ctx) => (
+            <div key={`pending-${ctx.pair}`} className="pending-order-strip">
               <span className="pending-strip-text">
-                Sell order waiting: {context.pendingSellOrder.quantity} {context.pair?.split('/')[0]} @ ${context.pendingSellOrder.price}
+                {ctx.pair}: Sell order waiting: {ctx.pendingSellOrder!.quantity} {ctx.pair?.split('/')[0]} @ ${ctx.pendingSellOrder!.price}
               </span>
               {onViewOrders && (
                 <button className="view-orders-btn" onClick={onViewOrders}>
@@ -275,7 +351,7 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
                 </button>
               )}
             </div>
-          )}
+          ))}
 
           {/* Console Messages */}
           <div className="trade-console-content" ref={consoleRef}>

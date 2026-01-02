@@ -111,9 +111,12 @@ class AuthFlowService {
       // First check for active session
       const activeSession = await this.checkActiveSession(normalizedAddress)
       if (activeSession) {
-        // User has active session, but we still need to check eligibility status
-        // for the Dashboard to display correctly
-        await this.checkEligibilityStatus(normalizedAddress)
+        // User has active session - set ready state immediately
+        // Run eligibility check in background (non-blocking) for dashboard display
+        this.checkEligibilityStatus(normalizedAddress).catch(() => {
+          // Ignore errors - this is purely informational for dashboard
+          console.log('[AuthFlow] Background eligibility check failed (non-critical)')
+        })
 
         this.setState({
           state: 'ready',
@@ -154,31 +157,48 @@ class AuthFlowService {
         return null
       }
 
-      // CRITICAL: Validate the session (check expiry, revocation, etc.)
-      // This includes ON-CHAIN validation to detect if session was revoked
-      console.log('[AuthFlow] Validating cached session on-chain...')
-      const isValid = await sessionService.validateSession(
-        tradingAccount.id,
-        ownerAddress,
-        false // DO NOT skip on-chain validation
-      )
-
-      if (!isValid) {
-        console.log('[AuthFlow] ❌ Session invalid on-chain - clearing and restarting flow')
-        // Clear ALL sessions when validation fails (like O2 does)
-        useSessionStore.getState().clearSessions()
+      // Check expiry LOCALLY first (like fuel-o2 does)
+      // This avoids unnecessary on-chain calls for expired sessions
+      const expiry = BigInt(cachedSession.expiry.unix.toString())
+      const now = BigInt(Math.floor(Date.now() / 1000))
+      if (expiry <= now) {
+        console.log('[AuthFlow] Session expired locally, clearing')
+        useSessionStore.getState().clearSessionForAccount(tradingAccount.id as `0x${string}`)
         return null
       }
 
-      console.log('[AuthFlow] ✅ Session valid on-chain')
+      // Session looks valid locally, try on-chain validation
+      console.log('[AuthFlow] Validating cached session on-chain...')
+      try {
+        const isValid = await sessionService.validateSession(
+          tradingAccount.id,
+          ownerAddress,
+          false // DO NOT skip on-chain validation
+        )
+
+        if (!isValid) {
+          console.log('[AuthFlow] ❌ Session invalid on-chain - clearing and restarting flow')
+          // Clear ALL sessions when validation fails (like O2 does)
+          useSessionStore.getState().clearSessions()
+          return null
+        }
+      } catch (validationError) {
+        // On-chain validation failed (network error, etc.)
+        // DON'T clear session - let user retry or proceed with locally valid session
+        console.warn('[AuthFlow] On-chain validation error (may be network issue):', validationError)
+        // Still return the session - it looks valid locally
+        // The actual trading will fail if session is truly invalid
+      }
+
+      console.log('[AuthFlow] ✅ Session valid')
 
       // Get full session from database (skip validation to avoid recursion)
       const session = await sessionService.getActiveSession(ownerAddress, true)
       return session ? { id: session.id } : null
     } catch (error) {
       console.error('[AuthFlow] Error checking active session:', error)
-      // Clear sessions on error to force fresh start
-      useSessionStore.getState().clearSessions()
+      // DON'T clear sessions on general errors - might be network issue
+      // Return null to proceed with auth flow, but don't destroy existing session
       return null
     }
   }
@@ -186,11 +206,11 @@ class AuthFlowService {
   private async checkEligibilityStatus(ownerAddress: string): Promise<void> {
     try {
       const normalizedAddress = ownerAddress.toLowerCase()
-      
+
       // Get trading account (should be cached or fetch if needed)
-      let tradingAccount = this.context.tradingAccount || 
+      let tradingAccount = this.context.tradingAccount ||
         await tradingAccountService.getTradingAccount(normalizedAddress)
-      
+
       if (!tradingAccount) {
         // Can't check without trading account - try to get or create it
         tradingAccount = await tradingAccountService.getOrCreateTradingAccount(normalizedAddress)
@@ -199,7 +219,7 @@ class AuthFlowService {
 
       // Fetch markets if needed (uses cache)
       await marketService.fetchMarkets()
-      
+
       // Check on-chain whitelist status first (more reliable)
       const booksWhitelistId = marketService.getBooksWhitelistId()
       let isWhitelisted = false
@@ -228,8 +248,12 @@ class AuthFlowService {
       // Update state with eligibility status
       this.setState({ isWhitelisted })
     } catch (error) {
-      console.warn('Failed to check eligibility status', error)
+      console.warn('[AuthFlow] Failed to check eligibility status (non-critical):', error)
       // Don't throw - this is a background check and shouldn't block the flow
+      // If we have an active session, assume user is whitelisted for dashboard display
+      if (this.context.sessionId) {
+        this.setState({ isWhitelisted: true })
+      }
     }
   }
 

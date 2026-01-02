@@ -50,6 +50,13 @@ export interface TradingSession {
     lastBuyPrice?: string
   } | null
 
+  // Starting balance snapshot (captured when session starts)
+  startingBaseBalance?: string   // e.g., "0.5" (human readable)
+  startingQuoteBalance?: string  // e.g., "100.00" (human readable)
+
+  // Strategy info
+  strategyName?: string  // e.g., "Simple Mode", "Volume Maximizing"
+
   createdAt: number
   updatedAt: number
   endedAt?: number

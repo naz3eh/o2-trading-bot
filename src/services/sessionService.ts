@@ -258,6 +258,11 @@ class SessionService {
   /**
    * Validates a session by checking if it's expired or revoked
    * CRITICAL: This now includes ON-CHAIN validation to detect session revocation
+   *
+   * Error handling strategy:
+   * - Expired sessions: Clear and return false (definitive)
+   * - Revoked on-chain: Clear and return false (definitive)
+   * - Network errors: Return true (let trading fail if session is actually bad)
    */
   async validateSession(
     tradingAccountId: string,
@@ -272,13 +277,13 @@ class SessionService {
         return false
       }
 
-      // Check expiry
+      // Check expiry locally first
       const expiry = BigInt(cachedSession.expiry.unix.toString())
       const now = BigInt(Math.floor(Date.now() / 1000))
 
       if (expiry <= now) {
         console.log('[SessionService] Session expired')
-        // Clear expired session
+        // Clear expired session - this is definitive
         useSessionStore.getState().clearSessionForAccount(tradingAccountId as `0x${string}`)
         return false
       }
@@ -316,9 +321,10 @@ class SessionService {
           const manager = await sessionManagerService.getTradeAccountManager(ownerAddress, false)
 
           if (!manager) {
-            console.log('[SessionService] Could not get trading account manager for validation')
-            useSessionStore.getState().clearSessionForAccount(tradingAccountId as `0x${string}`)
-            return false
+            // Can't get manager - but session looks valid locally
+            // Return true and let actual trading fail if session is bad
+            console.warn('[SessionService] Could not get manager for validation - assuming valid')
+            return true
           }
 
           // Validate session on-chain
@@ -335,16 +341,18 @@ class SessionService {
 
           console.log('[SessionService] ✅ Session valid on-chain')
         } catch (error) {
-          console.error('[SessionService] On-chain validation error:', error)
-          // On error, treat as invalid to be safe
-          useSessionStore.getState().clearSessionForAccount(tradingAccountId as `0x${string}`)
-          return false
+          // Network error or other transient issue
+          // DON'T clear session - it looks valid locally
+          // Let actual trading fail if session is truly invalid
+          console.warn('[SessionService] On-chain validation error (treating as valid):', error)
+          return true
         }
       }
 
       return true
     } catch (error) {
       console.error('[SessionService] Error validating session:', error)
+      // On general errors, return false but don't clear session
       return false
     }
   }

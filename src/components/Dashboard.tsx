@@ -12,11 +12,11 @@ import TradingAccount from './TradingAccount'
 import EligibilityCheck from './EligibilityCheck'
 import MarketSelector from './MarketSelector'
 import StrategyConfig from './StrategyConfig'
-import OrderHistory from './OrderHistory'
 import TradeHistory from './TradeHistory'
 import Balances from './Balances'
 import TradeConsole from './TradeConsole'
 import CompetitionPanel from './CompetitionPanel'
+import OpenOrdersPanel from './OpenOrdersPanel'
 import WelcomeModal from './WelcomeModal'
 import DepositDialog from './DepositDialog'
 import ConnectWalletDialog from './ConnectWalletDialog'
@@ -32,7 +32,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ isWalletConnected, onDisconnect }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'trades'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'trades'>('dashboard')
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [tradingAccount, setTradingAccount] = useState<any>(null)
   const [isEligible, setIsEligible] = useState<boolean | null>(null)
@@ -357,12 +357,6 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
               Dashboard
             </button>
             <button
-              className={activeTab === 'orders' ? 'active' : ''}
-              onClick={() => setActiveTab('orders')}
-            >
-              Orders
-            </button>
-            <button
               className={activeTab === 'trades' ? 'active' : ''}
               onClick={() => setActiveTab('trades')}
             >
@@ -483,7 +477,7 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
                   )}
                 </div>
 
-                <TradeConsole isTrading={isTrading} onViewOrders={() => setActiveTab('orders')} />
+                <TradeConsole isTrading={isTrading} />
               </div>
 
               <div className="markets-section">
@@ -550,12 +544,21 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
                       onClick={() => window.open('https://o2.app', '_blank')}
                     >
                       Deposit Funds on o2.app
+                      <svg className="external-link-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
                     </button>
                   </div>
                 </div>
                 <div className="section-content">
                   <Balances balances={balances} loading={balancesLoading} />
                 </div>
+              </div>
+
+              <div className="open-orders-section">
+                <OpenOrdersPanel />
               </div>
 
               <div className="strategy-settings-section">
@@ -583,10 +586,6 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
             </div>
           </div>
         </div>
-
-        {activeTab === 'orders' && (
-          <OrderHistory />
-        )}
 
         {activeTab === 'trades' && (
           <TradeHistory />

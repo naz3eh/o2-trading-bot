@@ -1,0 +1,244 @@
+.open-orders-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.order-count {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--foreground);
+  border-color: var(--ring);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel-content {
+  padding: 0;
+}
+
+.panel-loading,
+.panel-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+/* Scrollable table wrapper */
+.orders-table-wrapper {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+/* Custom scrollbar styling */
+.orders-table-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.orders-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.orders-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+  opacity: 0.3;
+}
+
+.orders-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
+  opacity: 0.5;
+}
+
+/* Firefox scrollbar */
+.orders-table-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+.compact-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.compact-orders-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+
+.compact-orders-table thead tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.compact-orders-table th {
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--muted-foreground);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.compact-orders-table th:nth-child(3),
+.compact-orders-table th:nth-child(4),
+.compact-orders-table th:nth-child(5) {
+  text-align: right;
+}
+
+.compact-orders-table th:nth-child(6) {
+  text-align: right;
+}
+
+.compact-orders-table th:last-child {
+  width: 32px;
+}
+
+.compact-orders-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s;
+}
+
+.compact-orders-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.compact-orders-table tbody tr:hover {
+  background-color: var(--muted);
+}
+
+.compact-orders-table td {
+  padding: 8px 10px;
+  color: var(--foreground);
+  vertical-align: middle;
+}
+
+.market-cell {
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.numeric-cell {
+  text-align: right;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  white-space: nowrap;
+}
+
+.action-cell {
+  text-align: center;
+  width: 32px;
+}
+
+.time-cell {
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.side-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.side-badge.buy {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--info);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.side-badge.sell {
+  background: rgba(251, 146, 60, 0.2);
+  color: var(--warning);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  color: var(--destructive);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

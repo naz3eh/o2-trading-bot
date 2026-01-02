@@ -240,7 +240,9 @@
 .balances-section > .section-header .deposit-link,
 .markets-section > .section-header .deposit-link,
 .strategy-settings-section > .section-header .deposit-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--primary-foreground);
   background: var(--primary);
   text-decoration: none;
@@ -251,6 +253,11 @@
   border: none;
   cursor: pointer;
   transition: opacity 0.2s;
+}
+
+.external-link-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .balances-section > .section-header .deposit-link:hover,

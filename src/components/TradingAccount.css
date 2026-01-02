@@ -3,81 +3,9 @@
   padding: 0;
 }
 
-.account-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .trading-account h2 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
   color: var(--foreground);
-}
-
-.account-ids {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.account-id-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.account-id-label {
-  font-size: 11px;
-  color: var(--muted-foreground);
-  font-weight: 500;
-}
-
-.account-id-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
-  font-size: 11px;
-  color: var(--foreground);
-  transition: color 0.2s;
-}
-
-.account-id-text.clickable {
-  cursor: pointer;
-}
-
-.account-id-text.clickable:hover {
-  color: var(--primary);
-}
-
-.copy-icon-inline {
-  flex-shrink: 0;
-  opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s;
-}
-
-.account-id-text.clickable:hover .copy-icon-inline {
-  opacity: 1;
-  color: var(--primary);
-}
-
-.loading-text {
-  color: var(--muted-foreground);
-  font-size: 12px;
-  margin: 0;
-}
-
-@media (max-width: 600px) {
-  .account-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .account-ids {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
 }

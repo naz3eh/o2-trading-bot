@@ -261,12 +261,24 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
   }
 
   const [copied, setCopied] = useState(false)
+  const [copiedAccountField, setCopiedAccountField] = useState<string | null>(null)
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
       await navigator.clipboard.writeText(walletAddress)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleCopyAccountField = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedAccountField(field)
+      addToast('Copied to clipboard', 'success')
+      setTimeout(() => setCopiedAccountField(null), 2000)
+    } catch (error) {
+      addToast('Failed to copy', 'error')
     }
   }
 
@@ -401,7 +413,7 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
           <div className="dashboard-main">
             <div className="dashboard-left-column">
               <div className="controls-section">
-                <TradingAccount account={tradingAccount} />
+                <TradingAccount />
 
                 <div className="trading-controls">
                   {isWalletConnected && isEligible === false && (
@@ -488,14 +500,58 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
               <div className="balances-section">
                 <div className="section-header">
                   <h2>Balances</h2>
-                  <button
-                    className="deposit-link"
-                    // onClick={() => setShowDepositDialog(true)}
-                    // open o2.app in new tab
-                    onClick={() => window.open('https://o2.app', '_blank')}
-                  >
-                    Deposit Funds on o2.app
-                  </button>
+                  <div className="balances-header-right">
+                    {tradingAccount && (
+                      <div className="account-ids">
+                        <div className="account-id-item">
+                          <span className="account-id-label">o2 Account:</span>
+                          <span
+                            className="account-id-text clickable"
+                            onClick={() => handleCopyAccountField(tradingAccount.id, 'account')}
+                            title="Click to copy o2 Account ID"
+                          >
+                            {formatAddress(tradingAccount.id)}
+                            <svg className="copy-icon-inline" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              {copiedAccountField === 'account' ? (
+                                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+                              ) : (
+                                <>
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </>
+                              )}
+                            </svg>
+                          </span>
+                        </div>
+                        <div className="account-id-item">
+                          <span className="account-id-label">Wallet:</span>
+                          <span
+                            className="account-id-text clickable"
+                            onClick={() => handleCopyAccountField(tradingAccount.ownerAddress, 'owner')}
+                            title="Click to copy Connected Wallet"
+                          >
+                            {formatAddress(tradingAccount.ownerAddress)}
+                            <svg className="copy-icon-inline" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              {copiedAccountField === 'owner' ? (
+                                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+                              ) : (
+                                <>
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </>
+                              )}
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      className="deposit-link"
+                      onClick={() => window.open('https://o2.app', '_blank')}
+                    >
+                      Deposit Funds on o2.app
+                    </button>
+                  </div>
                 </div>
                 <div className="section-content">
                   <Balances balances={balances} loading={balancesLoading} />

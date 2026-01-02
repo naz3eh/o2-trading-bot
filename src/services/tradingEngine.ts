@@ -527,6 +527,7 @@ class TradingEngine {
               
               // Format success message with human-readable values
               const pair = orderExec.marketPair || `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+              const orderType = orderExec.isLimitOrder ? 'LIMIT' : 'MARKET'
               const amount = orderExec.quantityHuman || 'N/A'
               const asset = marketConfig.market.base.symbol
               const orderPrice = orderExec.priceHuman ? `$${orderExec.priceHuman}` : 'N/A'
@@ -547,11 +548,11 @@ class TradingEngine {
               // Build detailed message
               let statusMsg: string
               if (fillPriceHuman && filledQtyHuman) {
-                statusMsg = `${pair}: ${orderExec.side} order placed at ${orderPrice}, filled ${filledQtyHuman} ${asset} at $${fillPriceHuman}`
+                statusMsg = `${pair} ${orderType}: ${orderExec.side} order placed at ${orderPrice}, filled ${filledQtyHuman} ${asset} at $${fillPriceHuman}`
               } else if (fillPriceHuman) {
-                statusMsg = `${pair}: ${orderExec.side} order placed at ${orderPrice}, filled at $${fillPriceHuman}`
+                statusMsg = `${pair} ${orderType}: ${orderExec.side} order placed at ${orderPrice}, filled at $${fillPriceHuman}`
               } else {
-                statusMsg = `${pair}: ${orderExec.side} order placed for ${amount} ${asset} at ${orderPrice}`
+                statusMsg = `${pair} ${orderType}: ${orderExec.side} order placed for ${amount} ${asset} at ${orderPrice}`
               }
 
               this.emitStatus(statusMsg, 'success')
@@ -573,12 +574,13 @@ class TradingEngine {
               }
             } else {
               console.error(`[TradingEngine] Order failed: ${orderExec.side} - ${orderExec.error}`)
-              
+
               // Format error message with market pair
               const pair = orderExec.marketPair || `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+              const orderType = orderExec.isLimitOrder ? 'LIMIT' : 'MARKET'
               const errorMsg = orderExec.error || 'Unknown error'
               this.emitStatus(
-                `${pair}: ${orderExec.side} order failed - ${errorMsg}`,
+                `${pair} ${orderType}: ${orderExec.side} order failed - ${errorMsg}`,
                 'error'
               )
             }

@@ -143,17 +143,23 @@ class AuthFlowService {
       const activeSession = await this.checkActiveSession(normalizedAddress)
       if (activeSession) {
         // User has active session - set ready state immediately
+        // IMPORTANT: Assume whitelisted=true since user already has a valid session
+        // (they passed whitelist check when session was created)
+        // This prevents briefly showing "Not whitelisted" during background check
+        this.setState({
+          state: 'ready',
+          sessionId: activeSession.id,
+          isWhitelisted: true, // Assume true - user has valid session so must be whitelisted
+          error: null,
+        })
+
         // Run eligibility check in background (non-blocking) for dashboard display
+        // This will update the state if for some reason they're no longer whitelisted
         this.checkEligibilityStatus(normalizedAddress).catch(() => {
           // Ignore errors - this is purely informational for dashboard
           console.log('[AuthFlow] Background eligibility check failed (non-critical)')
         })
 
-        this.setState({
-          state: 'ready',
-          sessionId: activeSession.id,
-          error: null,
-        })
         return
       }
 
@@ -180,10 +186,22 @@ class AuthFlowService {
 
   private async checkActiveSession(ownerAddress: string): Promise<{ id: string } | null> {
     try {
+      // Check for abort before starting
+      if (this.isAborted()) {
+        console.log('[AuthFlow] checkActiveSession aborted at start')
+        return null
+      }
+
       // Get trading account first
       const tradingAccount = await tradingAccountService.getTradingAccount(ownerAddress)
       if (!tradingAccount) {
         console.log('[AuthFlow] No trading account found for active session check')
+        return null
+      }
+
+      // Check for abort after trading account fetch
+      if (this.isAborted()) {
+        console.log('[AuthFlow] checkActiveSession aborted after trading account fetch')
         return null
       }
 
@@ -204,6 +222,12 @@ class AuthFlowService {
         return null
       }
 
+      // Check for abort before on-chain validation
+      if (this.isAborted()) {
+        console.log('[AuthFlow] checkActiveSession aborted before on-chain validation')
+        return null
+      }
+
       // Session looks valid locally, try on-chain validation
       console.log('[AuthFlow] Validating cached session on-chain...')
       try {
@@ -212,6 +236,12 @@ class AuthFlowService {
           ownerAddress,
           false // DO NOT skip on-chain validation
         )
+
+        // Check for abort after on-chain validation
+        if (this.isAborted()) {
+          console.log('[AuthFlow] checkActiveSession aborted after on-chain validation')
+          return null
+        }
 
         if (!isValid) {
           console.log('[AuthFlow] ❌ Session invalid on-chain - clearing session for this account')
@@ -225,6 +255,12 @@ class AuthFlowService {
         console.warn('[AuthFlow] On-chain validation error (may be network issue):', validationError)
         // Still return the session - it looks valid locally
         // The actual trading will fail if session is truly invalid
+      }
+
+      // Final abort check before returning
+      if (this.isAborted()) {
+        console.log('[AuthFlow] checkActiveSession aborted before returning session')
+        return null
       }
 
       console.log('[AuthFlow] ✅ Session valid')

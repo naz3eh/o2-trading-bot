@@ -33,14 +33,35 @@ export function clearUserStorage() {
 
 /**
  * Clears user data when switching to a DIFFERENT wallet address
- * This clears EVERYTHING including T&C acceptance
+ * This clears EVERYTHING including T&C acceptance and IndexedDB sessions
+ * NOTE: This is now async because it clears IndexedDB
  */
-export function clearUserStorageForAccountChange(previousAddress?: string) {
+export async function clearUserStorageForAccountChange(previousAddress?: string): Promise<void> {
   console.log('[clearUserStorage] Account changed - clearing ALL data including T&C')
 
-  // Clear sessions
+  // Clear sessions (Zustand)
   const sessionStore = useSessionStore.getState()
   sessionStore.clearSessions()
+
+  // Clear IndexedDB sessions for the previous address
+  // This ensures no stale session data persists in IndexedDB
+  if (previousAddress) {
+    try {
+      const sessionsToDelete = await db.sessions
+        .where('ownerAddress')
+        .equals(previousAddress.toLowerCase())
+        .toArray()
+
+      for (const session of sessionsToDelete) {
+        await db.sessions.delete(session.id)
+        // Also delete corresponding session keys
+        await db.sessionKeys.delete(session.id)
+      }
+      console.log('[clearUserStorage] Cleared IndexedDB sessions for:', previousAddress)
+    } catch (error) {
+      console.warn('[clearUserStorage] Failed to clear IndexedDB:', error)
+    }
+  }
 
   // Clear T&C acceptance for the OLD address only
   if (previousAddress) {

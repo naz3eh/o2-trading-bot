@@ -4,6 +4,7 @@ import { walletService, fuel } from '../services/walletService'
 import { useAccount, useAccountEffect } from 'wagmi'
 import { clearUserStorageForAccountChange } from '../utils/clearUserStorage'
 import { authFlowService } from '../services/authFlowService'
+import { sessionManagerService } from '../services/sessionManagerService'
 
 /**
  * Watches wallet connections and automatically updates the store
@@ -51,7 +52,11 @@ export function WalletConnectionWatcher() {
       authFlowService.abort()
 
       // CRITICAL: Clear all data including T&C for the OLD address
+      // This is now async but we don't need to await - fire and forget is fine here
       clearUserStorageForAccountChange(previousAddressRef.current)
+
+      // CRITICAL: Clear cached session managers to prevent stale managers being used
+      sessionManagerService.clearAll()
 
       // Reset auth flow so user goes through T&C and session creation again
       authFlowService.reset()
@@ -328,6 +333,15 @@ export function WalletConnectionWatcher() {
       // CRITICAL: Only disconnect if wallet is EXPLICITLY a non-Fuel wallet
       // Using === false to avoid disconnecting when isFuel is undefined
       if (current && current.isFuel === false) {
+        // CRITICAL: Don't disconnect during critical auth flow operations
+        // Wagmi can briefly report disconnected during/after signing in MetaMask
+        const authState = authFlowService.getState().state
+        const criticalStates = ['creatingSession', 'awaitingWelcome', 'awaitingTerms']
+        if (criticalStates.includes(authState)) {
+          console.log('[WalletWatcher] wagmi reported disconnect but auth flow in critical state:', authState, '- ignoring')
+          return
+        }
+
         console.log('[WalletWatcher] wagmi triggering disconnect for EVM wallet')
         handleDisconnect('wagmi.useAccount (isConnected=false)')
       } else if (current && current.isFuel === true) {

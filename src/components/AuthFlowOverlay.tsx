@@ -75,13 +75,27 @@ export default function AuthFlowOverlay({ onAuthReady, onAuthStateChange }: Auth
     return () => {
       mounted = false
       unsubscribe()
+      // Only abort if the flow is in a "working" state (checking, creating, verifying)
+      // Don't abort if flow is in a "display" state (awaiting user action) or already ready
+      // This prevents React Strict Mode double-mounting from killing active flows
+      const state = authFlowService.getState().state
+      const interruptibleStates = ['checkingSituation', 'checkingTerms', 'verifyingAccessQueue', 'creatingSession']
+      if (interruptibleStates.includes(state)) {
+        authFlowService.abort()
+      }
     }
   }, [onAuthReady, onAuthStateChange])
 
   const handleTermsClose = () => {
     // Only reset if terms were actually declined
+    // IMPORTANT: Use authFlowService.getState() for both checks to avoid stale React state
     const currentState = authFlowService.getState()
-    if (!authState.termsAccepted && currentState.state !== 'ready' && currentState.state !== 'creatingSession') {
+    // Don't reset if terms were accepted OR if we're in session creation/ready states
+    // termsAccepted and state should both come from the service to avoid race conditions
+    if (!currentState.termsAccepted &&
+        currentState.state !== 'ready' &&
+        currentState.state !== 'creatingSession' &&
+        currentState.state !== 'awaitingWelcome') {
       authFlowService.reset()
     }
   }

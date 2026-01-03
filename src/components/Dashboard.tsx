@@ -69,6 +69,20 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
     }
   }, [isWalletConnected])
 
+  // Set wallet address immediately when wallet connects (don't wait for auth flow)
+  // This ensures users can always see their address and disconnect, even if auth flow is stuck
+  useEffect(() => {
+    if (isWalletConnected) {
+      const wallet = walletService.getConnectedWallet()
+      if (wallet) {
+        const address = typeof wallet.address === 'string'
+          ? wallet.address
+          : (wallet.address as any)?.toString?.() || String(wallet.address)
+        setWalletAddress(address)
+      }
+    }
+  }, [isWalletConnected])
+
   // Fetch data when auth flow is ready (no duplicate initialization)
   useEffect(() => {
     const loadData = async () => {

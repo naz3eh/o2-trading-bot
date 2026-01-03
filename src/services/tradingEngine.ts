@@ -15,7 +15,7 @@ import { Order, OrderSide, OrderStatus } from '../types/order'
 import { TradingSession } from '../types/tradingSession'
 
 type TradeCallback = () => void
-type StatusCallback = (message: string, type: 'info' | 'success' | 'error' | 'warning') => void
+type StatusCallback = (message: string, type: 'info' | 'success' | 'error' | 'warning', verbosity?: 'simple' | 'debug') => void
 
 // Trading context for rich console display
 export interface TradingContext {
@@ -66,11 +66,12 @@ class TradingEngine {
   private transactionLock: boolean = false
   private lastContext: TradingContext | null = null
   private marketContexts: Map<string, TradingContext> = new Map()
+  private orderCancelListener: ((e: Event) => void) | null = null
 
-  private emitStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
+  private emitStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info', verbosity: 'simple' | 'debug' = 'simple'): void {
     this.onStatusCallbacks.forEach((callback) => {
       try {
-        callback(message, type)
+        callback(message, type, verbosity)
       } catch (error) {
         console.error('Error in status callback:', error)
       }
@@ -260,11 +261,82 @@ class TradingEngine {
       marketConfig.nextRunAt = Date.now()
       this.startMarketTrading(marketId, marketConfig)
 
+      // Emit strategy start message
+      const strategyName = marketConfig.config.name || 'Custom'
+      this.emitStatus(`${marketPair}: Strategy started - ${strategyName}`, 'info')
+
       // NOTE: Fill tracking is handled directly in executeTrade() (lines 347-407)
       // We don't start separate polling to avoid race conditions and duplicate processing
     }
 
+    // Setup order cancel listener to update context when orders are cancelled
+    this.setupOrderCancelListener()
+
     console.log('[TradingEngine] Trading engine started successfully')
+  }
+
+  /**
+   * Setup listener for order cancellation events to refresh context
+   * This ensures the yellow pending order strip is removed when orders are cancelled
+   */
+  private setupOrderCancelListener(): void {
+    this.orderCancelListener = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ orderId: string; marketId: string }>
+      const { marketId } = customEvent.detail
+
+      // Find the market config for this order
+      const marketConfig = this.marketConfigs.get(marketId)
+      if (!marketConfig || !this.ownerAddress || !this.tradingAccountId) return
+
+      // Re-fetch open orders and update context
+      try {
+        const openOrders = await orderService.getOpenOrders(marketId, this.ownerAddress)
+        const sellOrders = openOrders.filter(o => o.side === OrderSide.Sell)
+        const buyOrders = openOrders.filter(o => o.side === OrderSide.Buy)
+
+        // Update the pending sell order in context
+        let pendingSellOrder: { price: string; quantity: string } | null = null
+        if (sellOrders.length > 0 && marketConfig.config.orderManagement.onlySellAboveBuyPrice) {
+          const sellOrder = sellOrders[0]
+          const priceHuman = new Decimal(sellOrder.price).div(10 ** marketConfig.market.quote.decimals)
+          const quantityHuman = new Decimal(sellOrder.quantity).div(10 ** marketConfig.market.base.decimals)
+          pendingSellOrder = {
+            price: priceHuman.toFixed(marketConfig.market.quote.decimals).replace(/\.?0+$/, ''),
+            quantity: quantityHuman.toFixed(3).replace(/\.?0+$/, '')
+          }
+        }
+
+        // Emit updated context
+        const pair = `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+        const currentContext = this.marketContexts.get(pair)
+        if (currentContext) {
+          const updatedContext: TradingContext = {
+            ...currentContext,
+            pendingSellOrder,
+            openSellOrders: sellOrders.length,
+            openBuyOrders: buyOrders.length
+          }
+          this.emitContext(updatedContext)
+        }
+
+        // Emit status message
+        this.emitStatus(`${pair}: Order cancelled`, 'info')
+      } catch (error) {
+        console.error('[TradingEngine] Error handling order cancellation:', error)
+      }
+    }
+
+    window.addEventListener('order-cancelled', this.orderCancelListener)
+  }
+
+  /**
+   * Remove order cancel listener
+   */
+  private removeOrderCancelListener(): void {
+    if (this.orderCancelListener) {
+      window.removeEventListener('order-cancelled', this.orderCancelListener)
+      this.orderCancelListener = null
+    }
   }
 
   stop(): void {
@@ -274,6 +346,9 @@ class TradingEngine {
 
     this.isRunning = false
     this.transactionLock = false
+
+    // Remove order cancel listener
+    this.removeOrderCancelListener()
 
     // Pause all market sessions (async, fire and forget)
     for (const marketConfig of this.marketConfigs.values()) {
@@ -469,6 +544,28 @@ class TradingEngine {
           const currentPrice = ticker?.last_price
             ? new Decimal(ticker.last_price).div(10 ** marketConfig.market.quote.decimals).toFixed(marketConfig.market.quote.decimals).replace(/\.?0+$/, '')
             : null
+
+          // CHECK: Low balance warning
+          const minOrderSizeUsd = marketConfig.config.positionSizing.minOrderSizeUsd
+          const currentPriceDecimal = ticker?.last_price
+            ? new Decimal(ticker.last_price).div(10 ** marketConfig.market.quote.decimals)
+            : null
+
+          // Check quote balance for buy orders
+          if (quoteBalanceHuman.toNumber() < minOrderSizeUsd && buyOrders.length === 0) {
+            this.emitStatus(`${pair}: Quote balance ($${quoteBalanceHuman.toFixed(2)}) below minimum order size ($${minOrderSizeUsd})`, 'warning')
+          }
+
+          // Check base balance for sell orders (in USD terms)
+          if (currentPriceDecimal && sellOrders.length === 0) {
+            const baseValueUsd = baseBalanceHuman.mul(currentPriceDecimal).toNumber()
+            if (baseValueUsd < minOrderSizeUsd && baseValueUsd > 0.01) {
+              this.emitStatus(`${pair}: Base balance (${baseBalanceHuman.toFixed(6)} ${marketConfig.market.base.symbol} = $${baseValueUsd.toFixed(2)}) below minimum order size ($${minOrderSizeUsd})`, 'warning')
+            }
+          }
+
+          // Debug mode: emit balance update
+          this.emitStatus(`${pair}: Balance - ${baseBalanceHuman.toFixed(6)} ${marketConfig.market.base.symbol}, $${quoteBalanceHuman.toFixed(2)}`, 'info', 'debug')
 
           const nextRunIn = marketConfig.nextRunAt ? Math.max(0, Math.round((marketConfig.nextRunAt - Date.now()) / 1000)) : 0
 
@@ -673,19 +770,11 @@ class TradingEngine {
 
               this.emitStatus(statusMsg, 'success')
 
-              // Record trade in THIS MARKET's session (not global current session)
+              // Note: Trade recording moved to fill detection section (recordConfirmedFill)
+              // This ensures accurate trade count based on confirmed fills, not order placements
+              // Record the status message to this market's session
               const marketSessionId = marketConfig.sessionId
               if (marketSessionId) {
-                const tradePrice = fillPriceHuman || orderExec.priceHuman || '0'
-                const tradeQty = filledQtyHuman || orderExec.quantityHuman || '0'
-                await tradingSessionService.recordTrade(marketSessionId, {
-                  orderId: orderExec.orderId,
-                  side: orderExec.side as 'Buy' | 'Sell',
-                  price: tradePrice,
-                  quantity: tradeQty,
-                  marketPair: pair
-                })
-                // Also record the status message to this market's session
                 await tradingSessionService.addConsoleMessage(marketSessionId, statusMsg, 'success')
               }
             } else {
@@ -720,7 +809,43 @@ class TradingEngine {
             )
             
             console.log(`[TradingEngine] Tracked order fills: ${fillsDetected.size} fill(s) detected for market ${marketConfig.market.market_id}`)
-            
+
+            // Emit fill detection messages and record confirmed fills
+            for (const [orderId, fillData] of fillsDetected.entries()) {
+              const market = marketConfig.market
+
+              // Calculate the NEW fill quantity (delta from previous)
+              const currentFilledQty = new Decimal(fillData.order.filled_quantity || '0')
+              const previousFilledQty = new Decimal(fillData.previousFilledQuantity || '0')
+              const newFillQty = currentFilledQty.minus(previousFilledQty)
+              const newFillQtyHuman = newFillQty.div(10 ** market.base.decimals)
+
+              const fillPriceHuman = fillData.order.price_fill && fillData.order.price_fill !== '0'
+                ? new Decimal(fillData.order.price_fill).div(10 ** market.quote.decimals)
+                : new Decimal(fillData.order.price).div(10 ** market.quote.decimals)
+              const side = fillData.order.side === OrderSide.Buy ? 'Buy' : 'Sell'
+
+              // Only process if there's a new fill (not just re-detecting old fill)
+              if (newFillQtyHuman.gt(0)) {
+                this.emitStatus(
+                  `${pair}: ${side} order filled - ${newFillQtyHuman.toFixed(3).replace(/\.?0+$/, '')} ${market.base.symbol} @ $${fillPriceHuman.toFixed(market.quote.decimals).replace(/\.?0+$/, '')}`,
+                  'success'
+                )
+
+                // Record confirmed fill for accurate trade count, volume, and PnL
+                // P&L uses session's weighted average buy price (quantity-matched)
+                if (marketConfig.sessionId) {
+                  await tradingSessionService.recordConfirmedFill(marketConfig.sessionId, {
+                    orderId,
+                    side,
+                    fillPrice: fillPriceHuman.toString(),
+                    fillQuantity: newFillQtyHuman.toString(),
+                    marketPair: pair,
+                  })
+                }
+              }
+            }
+
             // Update config with fill prices for each detected fill
             let updatedConfig = marketConfig.config
             for (const [orderId, fillData] of fillsDetected.entries()) {
@@ -732,7 +857,7 @@ class TradingEngine {
                 fillData.previousFilledQuantity
               )
             }
-            
+
             // Update config in database with latest fill prices
             if (fillsDetected.size > 0) {
               await db.strategyConfigs.update(marketConfig.market.market_id, {
@@ -790,7 +915,8 @@ class TradingEngine {
                     // Continue with other fills even if one fails
                   }
                 } else if (fillData.order.side === OrderSide.Sell) {
-                  // Calculate and track P&L for sell fills
+                  // Calculate and track P&L for sell fills (for daily P&L limit feature)
+                  // Note: Session P&L is now handled in recordConfirmedFill above
                   try {
                     const pnl = this.calculateRealizedPnL(
                       fillData.order,
@@ -804,18 +930,6 @@ class TradingEngine {
                         updatedConfig
                       )
                       marketConfig.config = updatedConfig
-                    }
-
-                    // Also update session P&L for confirmed sell fills
-                    const sessionId = tradingSessionService.getCurrentSessionId()
-                    if (sessionId && fillData.order.price_fill && fillData.order.filled_quantity) {
-                      const fillPriceHuman = new Decimal(fillData.order.price_fill)
-                        .div(10 ** marketConfig.market.quote.decimals)
-                        .toString()
-                      const fillQtyHuman = new Decimal(fillData.order.filled_quantity)
-                        .div(10 ** marketConfig.market.base.decimals)
-                        .toString()
-                      await tradingSessionService.updateSessionPnL(sessionId, fillPriceHuman, fillQtyHuman)
                     }
                   } catch (error) {
                     console.error(`[TradingEngine] Error updating P&L for sell fill ${orderId}:`, error)
@@ -905,8 +1019,8 @@ class TradingEngine {
                 filledQuantity: order.filled_quantity,
               })
 
-              // Update session P&L for confirmed sell fills
-              if (trade.side === 'Sell' && order.price_fill && order.filled_quantity) {
+              // Record confirmed fill for P&L calculation
+              if (order.price_fill && order.filled_quantity) {
                 const sessionId = tradingSessionService.getCurrentSessionId()
                 if (sessionId) {
                   // Get market decimals to convert to human-readable format
@@ -918,7 +1032,16 @@ class TradingEngine {
                     const fillQtyHuman = new Decimal(order.filled_quantity)
                       .div(10 ** market.base.decimals)
                       .toString()
-                    await tradingSessionService.updateSessionPnL(sessionId, fillPriceHuman, fillQtyHuman)
+                    const pair = `${market.base.symbol}/${market.quote.symbol}`
+
+                    // P&L uses session's weighted average buy price (quantity-matched)
+                    await tradingSessionService.recordConfirmedFill(sessionId, {
+                      orderId: trade.orderId!,
+                      side: trade.side as 'Buy' | 'Sell',
+                      fillPrice: fillPriceHuman,
+                      fillQuantity: fillQtyHuman,
+                      marketPair: pair,
+                    })
                   }
                 }
               }
@@ -1060,19 +1183,33 @@ class TradingEngine {
       return 0
     }
 
-    // Calculate P&L: (sellPrice - avgBuyPrice) * quantity
+    // Calculate gross P&L: (sellPrice - avgBuyPrice) * quantity
     const avgBuyPrice = new Decimal(config.averageBuyPrice)
-    const pnl = fillPriceHuman.minus(avgBuyPrice).mul(filledQuantityHuman)
+    const grossPnL = fillPriceHuman.minus(avgBuyPrice).mul(filledQuantityHuman)
+
+    // Calculate fees: 0.01% on buy + 0.01% on sell = 0.02% total round-trip
+    const FEE_RATE = new Decimal('0.0001') // 0.01%
+    const buyValue = avgBuyPrice.mul(filledQuantityHuman)
+    const sellValue = fillPriceHuman.mul(filledQuantityHuman)
+    const buyFee = buyValue.mul(FEE_RATE)
+    const sellFee = sellValue.mul(FEE_RATE)
+    const totalFees = buyFee.plus(sellFee)
+
+    // Net P&L = Gross P&L - Fees
+    const netPnL = grossPnL.minus(totalFees)
 
     console.log('[TradingEngine] Calculated P&L for sell order:', {
       orderId: order.order_id,
       fillPrice: fillPriceHuman.toString(),
       avgBuyPrice: avgBuyPrice.toString(),
       quantity: filledQuantityHuman.toString(),
-      pnl: pnl.toString()
+      grossPnL: grossPnL.toString(),
+      buyFee: buyFee.toString(),
+      sellFee: sellFee.toString(),
+      netPnL: netPnL.toString()
     })
 
-    return pnl.toNumber()
+    return netPnL.toNumber()
   }
 
   /**

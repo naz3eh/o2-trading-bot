@@ -108,7 +108,10 @@ export interface StrategyConfig {
     realizedPnL: number  // USD
     pausedUntil?: number  // Timestamp when trading can resume (midnight)
   }
-  
+
+  // Console Settings
+  consoleMode?: 'simple' | 'debug' // Console verbosity: simple (essential) or debug (all details)
+
   // Metadata
   isActive: boolean
   createdAt: number
@@ -169,7 +172,9 @@ export function getDefaultStrategyConfig(marketId: string): StrategyConfig {
       cycleIntervalMinMs: 3000, // 3 seconds minimum
       cycleIntervalMaxMs: 5000, // 5 seconds maximum
     },
-    
+
+    consoleMode: 'simple', // Default to simple mode (essential messages only)
+
     isActive: true,
     createdAt: Date.now(),
     updatedAt: Date.now(),

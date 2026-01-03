@@ -13,6 +13,7 @@ interface ConsoleMessage {
   message: string
   type: string
   timestamp: number
+  verbosity?: 'simple' | 'debug'
 }
 
 export default function TradeConsole({ isTrading, onViewOrders }: TradeConsoleProps) {
@@ -21,6 +22,7 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
   const [contexts, setContexts] = useState<Map<string, TradingContext>>(new Map())
   const [countdown, setCountdown] = useState<number>(0)
   const [sessionRestored, setSessionRestored] = useState(false)
+  const [consoleMode, setConsoleMode] = useState<'simple' | 'debug'>('simple')
   const consoleRef = useRef<HTMLDivElement>(null)
 
 
@@ -143,9 +145,9 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
     }
 
     // Subscribe to status updates
-    const unsubscribeStatus = tradingEngine.onStatus((message, type) => {
+    const unsubscribeStatus = tradingEngine.onStatus((message, type, verbosity = 'simple') => {
       setConsoleMessages((prev) => {
-        const newMessages = [...prev, { message, type, timestamp: Date.now() }]
+        const newMessages = [...prev, { message, type, timestamp: Date.now(), verbosity }]
         // Keep only last 50 messages
         return newMessages.slice(-50)
       })
@@ -247,6 +249,16 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
       >
         <span className="console-title">Trade Execution Console</span>
         <div className="console-header-right">
+          <button
+            className={`console-mode-toggle ${consoleMode}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              setConsoleMode(prev => prev === 'simple' ? 'debug' : 'simple')
+            }}
+            title={consoleMode === 'simple' ? 'Click for debug mode (more details)' : 'Click for simple mode (essential only)'}
+          >
+            {consoleMode === 'simple' ? 'Simple' : 'Debug'}
+          </button>
           {isTrading && countdown > 0 && (
             <span className="console-countdown">
               Next: {countdown}s
@@ -356,7 +368,9 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
           {/* Console Messages */}
           <div className="trade-console-content" ref={consoleRef}>
             {consoleMessages.length > 0 ? (
-              consoleMessages.map((log, index) => (
+              consoleMessages
+                .filter(log => consoleMode === 'debug' || log.verbosity !== 'debug')
+                .map((log, index) => (
                 <div key={index} className={`console-line console-${log.type}`}>
                   <span className="console-timestamp">
                     {formatTime(log.timestamp)}

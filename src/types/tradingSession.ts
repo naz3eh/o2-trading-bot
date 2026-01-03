@@ -7,6 +7,9 @@ export interface TradingSessionTrade {
   fee: number // USD fee (0.01% of value)
   timestamp: number
   marketPair: string
+  weightedAvgBuyPrice?: string // For sell orders, the weighted avg buy price used for PnL calc
+  matchedQuantity?: string // For sell orders, quantity matched against buys for PnL calc
+  pnlContribution?: number // P&L contribution from this trade (for debugging)
 }
 
 export interface TradingSession {
@@ -30,6 +33,11 @@ export interface TradingSession {
   totalSoldQuantity: string
   totalBuyValue: number
   totalSellValue: number
+
+  // Unsold inventory tracking (for accurate P&L calculation)
+  // These track only the cost basis of inventory that hasn't been sold yet
+  unsoldCostBasis: number    // Total USD cost of unsold inventory
+  unsoldQuantity: string     // Quantity of unsold inventory (human-readable)
 
   // Trade history within session
   trades: TradingSessionTrade[]

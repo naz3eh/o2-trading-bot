@@ -206,6 +206,11 @@ class OrderService {
 
     // Update order status in database
     await db.orders.update(orderId, { status: OrderStatus.Cancelled })
+
+    // Dispatch event for trading engine to refresh context (updates yellow pending order strip)
+    window.dispatchEvent(new CustomEvent('order-cancelled', {
+      detail: { orderId, marketId }
+    }))
   }
 
   async getOpenOrders(marketId: string, ownerAddress: string): Promise<Order[]> {

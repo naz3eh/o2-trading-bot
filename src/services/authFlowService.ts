@@ -558,18 +558,26 @@ class AuthFlowService {
       )
 
       if (eligibility.isEligible) {
+        // Set isWhitelisted from eligibility response before creating session
+        this.setState({ isWhitelisted: eligibility.isWhitelisted })
         await this.createSession()
       } else {
+        // Set state AND throw error so the UI can catch it and show error toast
+        const errorMessage = eligibility.error || 'Invalid invitation code'
         this.setState({
           state: 'awaitingInvitation',
-          error: eligibility.error || 'Invalid invitation code',
+          error: errorMessage,
         })
+        throw new Error(errorMessage)
       }
     } catch (error: any) {
+      // Update state with error
       this.setState({
         state: 'awaitingInvitation',
         error: error.message || 'Failed to assign invitation code',
       })
+      // Re-throw so the UI can handle it (show error toast, keep dialog open)
+      throw error
     }
   }
 
@@ -634,6 +642,7 @@ class AuthFlowService {
         this.setState({
           state: 'awaitingWelcome',
           sessionId: session.id,
+          isWhitelisted: true,  // User is whitelisted since session was created
           error: null,
         })
         console.log('[AuthFlow] Showing welcome modal for first-time user')
@@ -641,6 +650,7 @@ class AuthFlowService {
         this.setState({
           state: 'ready',
           sessionId: session.id,
+          isWhitelisted: true,  // User is whitelisted since session was created
           error: null,
         })
         console.log('[AuthFlow] Auth flow complete - ready to trade')

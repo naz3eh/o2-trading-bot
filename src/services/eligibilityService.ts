@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { O2_API_URL } from '../constants/o2Constants'
+import { O2_API_URL, O2_ANALYTICS_API_URL } from '../constants/o2Constants'
 
 export interface EligibilityStatus {
   isEligible: boolean
@@ -31,19 +31,22 @@ class EligibilityService {
       // For now, we'll implement a basic check
       
       // If invite code is provided, try to use it
-      if (inviteCode) {
+      if (inviteCode && tradingAccountId) {
         try {
-          // Call the invitation API endpoint
-          const response = await axios.post(
-            `${this.apiUrl}/invitations/assign`,
+          // Call the analytics API endpoint with PUT method (matching fuel-o2)
+          // Endpoint: PUT /analytics/v1/assign-code
+          const response = await axios.put(
+            `${O2_ANALYTICS_API_URL}/assign-code`,
             {
-              invitation_code: inviteCode,
-              trade_account_id: tradingAccountId,
-              wallet_address: walletAddress,
+              // Use camelCase to match fuel-o2 API format
+              invitationCode: inviteCode,
+              tradeAccountId: tradingAccountId,
+              walletAddress: walletAddress,
             }
           )
 
-          if (response.data.success) {
+          // fuel-o2 returns { referer, address } on success (status 200)
+          if (response.status === 200) {
             return {
               isEligible: true,
               isWhitelisted: true,
@@ -51,11 +54,18 @@ class EligibilityService {
             }
           }
         } catch (error: any) {
+          // API returns specific error codes:
+          // 404 = Code not found
+          // 400 = Code already used or limit reached
+          // 403 = Code restricted to different address
+          const errorMessage = error.response?.data?.message ||
+                              error.response?.data?.error ||
+                              'Invalid invitation code'
           return {
             isEligible: false,
             isWhitelisted: false,
             hasInviteCode: false,
-            error: error.response?.data?.error || 'Invalid invite code',
+            error: errorMessage,
           }
         }
       }

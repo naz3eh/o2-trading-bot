@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useWalletStore } from '../stores/useWalletStore'
 import { walletService, fuel } from '../services/walletService'
 import { useAccount, useAccountEffect } from 'wagmi'
-import { clearUserStorage, clearUserStorageForAccountChange } from '../utils/clearUserStorage'
+import { clearUserStorageForAccountChange } from '../utils/clearUserStorage'
 import { authFlowService } from '../services/authFlowService'
 
 /**
@@ -20,18 +20,21 @@ export function WalletConnectionWatcher() {
 
   // Handle wallet disconnect
   const handleDisconnect = useCallback((source?: string) => {
-    console.log('[WalletWatcher] ===== WALLET DISCONNECTED =====')
-    console.log('[WalletWatcher] Disconnect source:', source || 'unknown')
-    console.log('[WalletWatcher] Stack trace:', new Error().stack)
+    console.log('[WalletWatcher] Wallet disconnected, source:', source || 'unknown')
 
     // Clear wallet store
     clearWallet()
 
-    // CRITICAL: Clear all user storage (sessions, keys, terms, etc.)
-    clearUserStorage()
+    // DON'T clear user storage here - let sessions persist across disconnects
+    // Sessions will be cleared on:
+    // 1. Account CHANGE (different address) - handled in handleConnect above
+    // 2. User explicitly uses "Clear & Retry" button
+    // This matches O2's behavior and prevents intermittent connection issues on refresh
 
-    // Reset auth flow
-    authFlowService.reset()
+    // DON'T reset auth flow here either - it causes issues when wagmi briefly
+    // reports disconnected during signing or page load. The auth flow will
+    // naturally restart when user reconnects (startFlow checks for wallet).
+    // If user was viewing welcome modal, they can dismiss it and proceed.
 
     previousAddressRef.current = null
   }, [clearWallet])
@@ -43,6 +46,9 @@ export function WalletConnectionWatcher() {
     // Check if this is an account change (not initial connect)
     if (previousAddressRef.current && previousAddressRef.current !== normalizedAddress) {
       console.log('[WalletWatcher] Account changed from', previousAddressRef.current, 'to', normalizedAddress)
+
+      // CRITICAL: Abort any in-progress auth flow first to prevent stale data
+      authFlowService.abort()
 
       // CRITICAL: Clear all data including T&C for the OLD address
       clearUserStorageForAccountChange(previousAddressRef.current)

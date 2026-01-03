@@ -52,7 +52,7 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
   const strategyCreateNewRef = useRef<(() => void) | null>(null)
   const strategyImportRef = useRef<(() => void) | null>(null)
 
-  // Reset auth state when wallet disconnects
+  // Reset local UI state when wallet disconnects
   useEffect(() => {
     if (!isWalletConnected) {
       setAuthReady(false)
@@ -62,8 +62,10 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
       setIsEligible(null)
       setBalances(null)
       setHasResumableSession(false)
-      // Reset auth flow service
-      authFlowService.reset()
+      // DON'T reset auth flow service here - wagmi can briefly report disconnected
+      // during signing which causes the welcome modal to disappear.
+      // Let AuthFlowOverlay manage auth flow state. When wallet reconnects,
+      // startFlow() will be called again if needed.
     }
   }, [isWalletConnected])
 

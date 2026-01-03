@@ -178,18 +178,38 @@ class WalletService {
 
   async disconnect(): Promise<void> {
     const wallet = useWalletStore.getState().connectedWallet
+    console.log('[WalletService] Disconnecting wallet:', wallet?.type, wallet?.isFuel ? 'Fuel' : 'EVM')
+
+    // Clear from store FIRST so WalletConnectionWatcher knows we're intentionally disconnecting
+    useWalletStore.getState().clearWallet()
+
     if (wallet?.isFuel) {
-      await fuel.disconnect()
-    } else {
+      try {
+        await fuel.disconnect()
+        console.log('[WalletService] Fuel wallet disconnected')
+      } catch (error) {
+        console.warn('[WalletService] Error disconnecting Fuel wallet:', error)
+      }
+    } else if (wallet) {
       // Disconnect Ethereum wallet
       try {
         await wagmiDisconnect(wagmiConfig)
+        console.log('[WalletService] wagmi disconnect completed')
+
+        // Clear wagmi's persisted connector state to prevent stale reconnection
+        try {
+          localStorage.removeItem('wagmi.store')
+          localStorage.removeItem('wagmi.connected')
+          localStorage.removeItem('wagmi.wallet')
+          localStorage.removeItem('wagmi.recentConnectorId')
+          console.log('[WalletService] Cleared wagmi localStorage keys')
+        } catch (e) {
+          console.warn('[WalletService] Could not clear wagmi localStorage:', e)
+        }
       } catch (error) {
-        console.warn('Error disconnecting Ethereum wallet', error)
+        console.warn('[WalletService] Error disconnecting Ethereum wallet:', error)
       }
     }
-    // Clear from store
-    useWalletStore.getState().clearWallet()
   }
 
   getConnectedWallet(): ConnectedWallet | null {
@@ -202,30 +222,56 @@ class WalletService {
       return null
     }
 
+    console.log('[WalletService] Attempting to restore connection:', stored.type, stored.isFuel ? 'Fuel' : 'EVM')
+
     try {
       if (stored.isFuel) {
         // Try to restore Fuel connection
+        const isConnected = await fuel.isConnected()
+        if (!isConnected) {
+          console.log('[WalletService] Fuel SDK says not connected, clearing stale data')
+          useWalletStore.getState().clearWallet()
+          return null
+        }
+
         const account = await fuel.currentAccount()
         if (account && typeof account !== 'string' && (account as any).address) {
           const address = (account as any).address.toB256()
-          if (address === stored.address) {
+          if (address.toLowerCase() === stored.address.toLowerCase()) {
+            console.log('[WalletService] Fuel connection restored')
             return stored
           }
         }
+        // Address mismatch - clear stale data
+        console.log('[WalletService] Fuel address mismatch, clearing')
+        useWalletStore.getState().clearWallet()
+        return null
       } else {
         // Try to restore Ethereum connection
-        const account = await getAccount(wagmiConfig)
-        if (account && account.address && account.address.toLowerCase() === stored.address.toLowerCase()) {
+        // Check ACTUAL wagmi connection state, not just stored data
+        const account = getAccount(wagmiConfig)
+        if (!account.isConnected) {
+          console.log('[WalletService] wagmi says not connected, clearing stale data')
+          useWalletStore.getState().clearWallet()
+          return null
+        }
+
+        if (account.address && account.address.toLowerCase() === stored.address.toLowerCase()) {
+          console.log('[WalletService] Ethereum connection restored')
           return stored
         }
+
+        // Address mismatch - clear stale data
+        console.log('[WalletService] Ethereum address mismatch, clearing')
+        useWalletStore.getState().clearWallet()
+        return null
       }
     } catch (error) {
-      console.warn('Failed to restore connection', error)
+      console.warn('[WalletService] Failed to restore connection:', error)
       // Clear invalid connection
       useWalletStore.getState().clearWallet()
+      return null
     }
-
-    return null
   }
 
   async getCurrentAccount(): Promise<string | null> {

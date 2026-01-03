@@ -281,7 +281,7 @@ class SessionService {
       const expiry = BigInt(cachedSession.expiry.unix.toString())
       const now = BigInt(Math.floor(Date.now() / 1000))
 
-      if (expiry <= now) {
+      if (expiry < now) {
         console.log('[SessionService] Session expired')
         // Clear expired session - this is definitive
         useSessionStore.getState().clearSessionForAccount(tradingAccountId as `0x${string}`)
@@ -331,9 +331,10 @@ class SessionService {
           const isValidOnChain = await manager.validateSession()
 
           if (!isValidOnChain) {
-            console.log('[SessionService] ❌ Session invalid on-chain - clearing all sessions')
+            console.log('[SessionService] ❌ Session invalid on-chain - clearing session for this account')
             // Session was revoked (e.g., user signed in another app)
-            useSessionStore.getState().clearSessions()
+            // Only clear the specific account's session, not ALL sessions
+            useSessionStore.getState().clearSessionForAccount(tradingAccountId as `0x${string}`)
             // Also mark as inactive in DB
             await this.deactivateSession(sessionId)
             return false

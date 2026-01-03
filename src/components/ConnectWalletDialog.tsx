@@ -67,11 +67,20 @@ export default function ConnectWalletDialog({ onClose }: ConnectWalletDialogProp
 
   const handleConnectFuel = async (walletType: 'fuel' | 'fuelet' | 'bako-safe') => {
     setConnecting(walletType)
+
+    // Timeout to prevent button getting stuck
+    const timeout = setTimeout(() => {
+      setConnecting(null)
+      addToast('Connection timed out. Please try again.', 'error')
+    }, 30000) // 30 second timeout
+
     try {
       await walletService.connectFuelWallet(walletType)
+      clearTimeout(timeout)
       addToast('Wallet connected successfully', 'success')
       onClose()
     } catch (error: any) {
+      clearTimeout(timeout)
       addToast(`Failed to connect wallet: ${error.message}`, 'error')
     } finally {
       setConnecting(null)
@@ -80,11 +89,20 @@ export default function ConnectWalletDialog({ onClose }: ConnectWalletDialogProp
 
   const handleConnectEthereum = async (connectorName?: string) => {
     setConnecting(connectorName || 'ethereum')
+
+    // Timeout to prevent button getting stuck
+    const timeout = setTimeout(() => {
+      setConnecting(null)
+      addToast('Connection timed out. Please try again.', 'error')
+    }, 30000) // 30 second timeout
+
     try {
       await walletService.connectEthereumWallet(connectorName)
+      clearTimeout(timeout)
       addToast('Wallet connected successfully', 'success')
       onClose()
     } catch (error: any) {
+      clearTimeout(timeout)
       addToast(`Failed to connect wallet: ${error.message}`, 'error')
     } finally {
       setConnecting(null)

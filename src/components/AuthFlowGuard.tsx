@@ -6,6 +6,7 @@ import AccessQueueDialog from './AccessQueueDialog'
 import InvitationCodeDialog from './InvitationCodeDialog'
 import WelcomeModal from './WelcomeModal'
 import { useToast } from './ToastProvider'
+import { clearAllSessionStorage } from '../utils/clearUserStorage'
 
 interface AuthFlowGuardProps {
   children: React.ReactNode
@@ -124,6 +125,17 @@ export default function AuthFlowGuard({ children }: AuthFlowGuardProps) {
 
   // Show error state with retry
   if (authState.state === 'error') {
+    const handleRetry = () => {
+      authFlowService.forceReset()
+      authFlowService.startFlow()
+    }
+
+    const handleClearAndRetry = async () => {
+      await clearAllSessionStorage()
+      authFlowService.forceReset()
+      authFlowService.startFlow()
+    }
+
     return (
       <div style={{
         display: 'flex',
@@ -137,21 +149,41 @@ export default function AuthFlowGuard({ children }: AuthFlowGuardProps) {
         <p style={{ color: 'var(--destructive)', fontSize: '14px' }}>
           {authState.error || 'Authentication failed'}
         </p>
-        <button
-          onClick={() => authFlowService.startFlow()}
-          style={{
-            padding: '10px 20px',
-            background: 'var(--primary)',
-            color: 'var(--primary-foreground)',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}
-        >
-          Retry
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={handleRetry}
+            style={{
+              padding: '10px 20px',
+              background: 'var(--primary)',
+              color: 'var(--primary-foreground)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            Retry
+          </button>
+          <button
+            onClick={handleClearAndRetry}
+            style={{
+              padding: '10px 20px',
+              background: 'var(--secondary)',
+              color: 'var(--secondary-foreground)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            Clear & Retry
+          </button>
+        </div>
+        <p style={{ color: 'var(--muted-foreground)', fontSize: '12px', marginTop: '8px' }}>
+          If retry doesn't work, try "Clear & Retry" to reset session data
+        </p>
       </div>
     )
   }

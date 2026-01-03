@@ -2,6 +2,7 @@ import { useSessionStore } from '../stores/useSessionStore'
 import { useTermsOfUseStore } from '../stores/useTermsOfUseStore'
 import { usePrivateKeysStore } from '../stores/usePrivateKeysStore'
 import { useTradingAccountAddressesStore } from '../stores/useTradingAccountAddressesStore'
+import { db } from '../services/dbService'
 
 /**
  * Clears user data when disconnecting wallet
@@ -56,4 +57,38 @@ export function clearUserStorageForAccountChange(previousAddress?: string) {
   tradingAccountStore.clearContracts()
 
   console.log('[clearUserStorage] All data cleared for account change')
+}
+
+/**
+ * Clears ALL session storage across all layers (Zustand + IndexedDB)
+ * Use this for "Clear & Retry" functionality to ensure clean state
+ */
+export async function clearAllSessionStorage(): Promise<void> {
+  console.log('[clearUserStorage] Clearing all session storage layers')
+
+  // 1. Clear Zustand session store
+  const sessionStore = useSessionStore.getState()
+  sessionStore.clearSessions()
+
+  // 2. Clear IndexedDB sessions table
+  try {
+    await db.sessions.clear()
+    console.log('[clearUserStorage] IndexedDB sessions cleared')
+  } catch (error) {
+    console.warn('[clearUserStorage] Failed to clear IndexedDB sessions:', error)
+  }
+
+  // 3. Clear IndexedDB sessionKeys table
+  try {
+    await db.sessionKeys.clear()
+    console.log('[clearUserStorage] IndexedDB sessionKeys cleared')
+  } catch (error) {
+    console.warn('[clearUserStorage] Failed to clear IndexedDB sessionKeys:', error)
+  }
+
+  // 4. Clear private keys store
+  const privateKeysStore = usePrivateKeysStore.getState()
+  privateKeysStore.clearPrivateKeys()
+
+  console.log('[clearUserStorage] All session storage layers cleared')
 }

@@ -4,7 +4,6 @@ import { eligibilityService } from './eligibilityService'
 import { useTermsOfUseStore } from '../stores/useTermsOfUseStore'
 import { useSessionStore } from '../stores/useSessionStore'
 import { useWelcomeStore } from '../stores/useWelcomeStore'
-import { o2ApiService } from './o2ApiService'
 import { walletService } from './walletService'
 import { marketService } from './marketService'
 import { whitelistService } from './whitelistService'
@@ -59,6 +58,9 @@ class AuthFlowService {
   // Prevent concurrent startFlow calls (e.g., from React strict mode)
   private isFlowRunning = false
 
+  // Abort controller for cancelling in-progress flows (e.g., on wallet change)
+  private abortController: AbortController | null = null
+
   subscribe(listener: (context: AuthFlowContext) => void) {
     this.listeners.add(listener)
     return () => {
@@ -79,6 +81,26 @@ class AuthFlowService {
     return { ...this.context }
   }
 
+  /**
+   * Abort the current auth flow if one is running.
+   * Use this when wallet changes to prevent stale data.
+   */
+  abort() {
+    if (this.abortController) {
+      console.log('[AuthFlow] Aborting current flow')
+      this.abortController.abort()
+      this.abortController = null
+    }
+    this.isFlowRunning = false
+  }
+
+  /**
+   * Check if the current flow has been aborted.
+   */
+  private isAborted(): boolean {
+    return this.abortController?.signal.aborted ?? false
+  }
+
   async startFlow(): Promise<void> {
     // CRITICAL: Prevent concurrent calls (e.g., from React strict mode double-mounting)
     // This prevents duplicate API calls that cause 429 rate limiting
@@ -93,6 +115,9 @@ class AuthFlowService {
       return
     }
 
+    // Cancel any previous flow and create new abort controller
+    this.abort()
+    this.abortController = new AbortController()
     this.isFlowRunning = true
 
     try {
@@ -107,6 +132,12 @@ class AuthFlowService {
       // This ensures it's available whether we're creating a new session
       // or retrieving an existing one
       sessionService.setPassword('default-password-change-in-production')
+
+      // Check if aborted before continuing
+      if (this.isAborted()) {
+        console.log('[AuthFlow] Flow aborted before session check')
+        return
+      }
 
       // First check for active session
       const activeSession = await this.checkActiveSession(normalizedAddress)
@@ -123,6 +154,12 @@ class AuthFlowService {
           sessionId: activeSession.id,
           error: null,
         })
+        return
+      }
+
+      // Check if aborted before proceeding
+      if (this.isAborted()) {
+        console.log('[AuthFlow] Flow aborted before checkSituation')
         return
       }
 
@@ -161,7 +198,7 @@ class AuthFlowService {
       // This avoids unnecessary on-chain calls for expired sessions
       const expiry = BigInt(cachedSession.expiry.unix.toString())
       const now = BigInt(Math.floor(Date.now() / 1000))
-      if (expiry <= now) {
+      if (expiry < now) {
         console.log('[AuthFlow] Session expired locally, clearing')
         useSessionStore.getState().clearSessionForAccount(tradingAccount.id as `0x${string}`)
         return null
@@ -177,9 +214,9 @@ class AuthFlowService {
         )
 
         if (!isValid) {
-          console.log('[AuthFlow] ❌ Session invalid on-chain - clearing and restarting flow')
-          // Clear ALL sessions when validation fails (like O2 does)
-          useSessionStore.getState().clearSessions()
+          console.log('[AuthFlow] ❌ Session invalid on-chain - clearing session for this account')
+          // Only clear the specific account's session, not ALL sessions
+          useSessionStore.getState().clearSessionForAccount(tradingAccount.id as `0x${string}`)
           return null
         }
       } catch (validationError) {
@@ -275,7 +312,18 @@ class AuthFlowService {
       await marketService.fetchMarkets()
 
       // Check on-chain whitelist status first (more reliable)
-      const booksWhitelistId = marketService.getBooksWhitelistId()
+      let booksWhitelistId = marketService.getBooksWhitelistId()
+
+      // If booksWhitelistId is still null, force refresh from API
+      if (!booksWhitelistId) {
+        console.log('[AuthFlow] booksWhitelistId not found, forcing market refresh')
+        await marketService.fetchMarkets(true) // force refresh
+        booksWhitelistId = marketService.getBooksWhitelistId()
+      }
+
+      console.log('[AuthFlow] booksWhitelistId:', booksWhitelistId ? 'found' : 'still null')
+      console.log('[AuthFlow] tradingAccount.id:', tradingAccount.id)
+
       let isWhitelisted = false
 
       if (booksWhitelistId) {
@@ -284,18 +332,23 @@ class AuthFlowService {
             tradingAccount.id,
             booksWhitelistId
           )
+          console.log('[AuthFlow] On-chain whitelist check result:', isWhitelisted)
         } catch (error) {
-          console.warn('Failed to check on-chain whitelist status', error)
+          console.warn('[AuthFlow] Failed to check on-chain whitelist status:', error)
           // Fallback to API eligibility check
         }
+      } else {
+        console.warn('[AuthFlow] No booksWhitelistId available, skipping on-chain check')
       }
 
       // If not whitelisted on-chain, check API eligibility (for invitation codes, etc.)
       if (!isWhitelisted) {
+        console.log('[AuthFlow] Checking API eligibility as fallback...')
         const eligibility = await eligibilityService.checkEligibility(
           normalizedAddress,
           tradingAccount.id
         )
+        console.log('[AuthFlow] API eligibility result:', eligibility)
         isWhitelisted = eligibility.isEligible && eligibility.isWhitelisted
       }
 
@@ -513,8 +566,7 @@ class AuthFlowService {
         : marketContractIds
       console.log('[AuthFlow] Contract IDs (markets + accounts_registry):', contractIds.length)
 
-      // Set password for session encryption
-      sessionService.setPassword('default-password-change-in-production')
+      // Password already set at the start of startFlow() - no need to set again
 
       // Use cached trading account or fetch if not available
       const tradingAccount = this.context.tradingAccount ||
@@ -609,6 +661,16 @@ class AuthFlowService {
       invitationCode: null,
       sessionId: null,
     })
+  }
+
+  /**
+   * Force reset the auth flow - clears isFlowRunning flag and resets state.
+   * Use this for retry scenarios where the flow may be stuck.
+   */
+  forceReset() {
+    console.log('[AuthFlow] Force resetting auth flow')
+    this.isFlowRunning = false
+    this.reset()
   }
 }
 

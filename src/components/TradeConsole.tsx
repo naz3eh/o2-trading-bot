@@ -297,7 +297,7 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
             }}
             title="Download logs as JSON"
           >
-            ↓
+            Export Logs
           </button>
           <button
             className={`console-mode-toggle ${consoleMode}`}
@@ -307,7 +307,7 @@ export default function TradeConsole({ isTrading, onViewOrders }: TradeConsolePr
             }}
             title={consoleMode === 'simple' ? 'Click for debug mode (more details)' : 'Click for simple mode (essential only)'}
           >
-            {consoleMode === 'simple' ? 'Simple' : 'Debug'}
+            {consoleMode === 'simple' ? 'Simple Mode' : 'Debug Mode'}
           </button>
           {isTrading && countdown > 0 && (
             <span className="console-countdown">

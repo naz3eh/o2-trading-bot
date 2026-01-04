@@ -38,18 +38,22 @@ export default function TermsOfUseDialog({ isOpen, onClose }: TermsOfUseDialogPr
       <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
         <h2>Terms of Use</h2>
         <div className="terms-content">
-          <p>
-            By using this trading bot, you agree to the following terms:
-          </p>
+          <p>By using this trading bot, you agree to the following terms:</p>
           <ul>
             <li>You are responsible for all trading activities</li>
             <li>You understand the risks involved in automated trading</li>
             <li>You will not use this bot for illegal activities</li>
             <li>You acknowledge that trading involves risk of loss</li>
+            <li>You acknowledge this bot likely has bugs</li>
+            <li>You acknowledge this is highly experimental software</li>
           </ul>
           <p>
-            Please read the full terms of use at{' '}
-            <a href="https://o2.app/terms-of-use" target="_blank" rel="noopener noreferrer">
+            Please read the full terms of use at{" "}
+            <a
+              href="https://o2.app/terms-of-use"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               o2.app/terms-of-use
             </a>
           </p>
@@ -68,11 +72,15 @@ export default function TermsOfUseDialog({ isOpen, onClose }: TermsOfUseDialogPr
           <button className="decline-button" onClick={handleDecline}>
             Decline
           </button>
-          <button className="accept-button" onClick={handleAccept} disabled={!accepted}>
+          <button
+            className="accept-button"
+            onClick={handleAccept}
+            disabled={!accepted}
+          >
             Accept
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -4,6 +4,7 @@ import { walletService } from '../services/walletService'
 import TermsOfUseDialog from './TermsOfUseDialog'
 import AccessQueueDialog from './AccessQueueDialog'
 import InvitationCodeDialog from './InvitationCodeDialog'
+import SignMessageDialog from './SignMessageDialog'
 import WelcomeModal from './WelcomeModal'
 import { useToast } from './ToastProvider'
 import { clearAllSessionStorage } from '../utils/clearUserStorage'
@@ -82,6 +83,30 @@ export default function AuthFlowGuard({ children }: AuthFlowGuardProps) {
 
   const handleInvitationClose = () => {
     // If no invitation code, user can skip (will remain in queue)
+  }
+
+  const handleSignMessageClose = () => {
+    // User cancelled - this will set state to signatureDeclined
+  }
+
+  // Handle awaitingSignature state FIRST - show SignMessageDialog
+  if (authState.state === 'awaitingSignature') {
+    return (
+      <>
+        <SignMessageDialog
+          isOpen={true}
+          onClose={handleSignMessageClose}
+        />
+        {/* Background while dialog is shown */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          background: 'var(--background)'
+        }} />
+      </>
+    )
   }
 
   // Loading states - show spinner while authenticating
@@ -203,6 +228,44 @@ export default function AuthFlowGuard({ children }: AuthFlowGuardProps) {
           onClose={() => authFlowService.dismissWelcome()}
         />
       </>
+    )
+  }
+
+  // Signature declined state - show retry UI
+  if (authState.state === 'signatureDeclined') {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: 'var(--background)',
+        gap: '16px'
+      }}>
+        <p style={{ color: 'var(--foreground)', fontSize: '16px', fontWeight: '500' }}>
+          Signature required to continue
+        </p>
+        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', textAlign: 'center', maxWidth: '400px' }}>
+          A wallet signature is needed to create your trading session. This does not cost any gas.
+        </p>
+        <button
+          onClick={() => authFlowService.retrySignature()}
+          style={{
+            padding: '12px 24px',
+            background: 'var(--primary)',
+            color: 'var(--primary-foreground)',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            marginTop: '8px'
+          }}
+        >
+          Sign Message
+        </button>
+      </div>
     )
   }
 

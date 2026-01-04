@@ -1,0 +1,57 @@
+.sign-message-dialog {
+  max-width: 450px;
+}
+
+.sign-message-content {
+  margin-bottom: 24px;
+  color: var(--foreground);
+  line-height: 1.6;
+}
+
+.sign-message-content p {
+  margin-bottom: 12px;
+}
+
+.sign-message-note {
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.cancel-button,
+.sign-button {
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.cancel-button {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.cancel-button:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.cancel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sign-button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.sign-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.sign-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}

@@ -17,6 +17,8 @@ export type AuthFlowState =
   | 'verifyingAccessQueue'
   | 'displayingAccessQueue'
   | 'awaitingInvitation'
+  | 'awaitingSignature'
+  | 'signatureDeclined'
   | 'creatingSession'
   | 'awaitingWelcome'
   | 'ready'
@@ -35,6 +37,9 @@ export interface AuthFlowContext {
   }
   invitationCode: string | null
   sessionId: string | null
+  pendingSession: {
+    contractIds: string[]
+  } | null
 }
 
 class AuthFlowService {
@@ -51,6 +56,7 @@ class AuthFlowService {
     },
     invitationCode: null,
     sessionId: null,
+    pendingSession: null,
   }
 
   private listeners: Set<(context: AuthFlowContext) => void> = new Set()
@@ -583,14 +589,12 @@ class AuthFlowService {
 
   private async createSession(): Promise<void> {
     try {
-      this.setState({ state: 'creatingSession' })
-
       const wallet = walletService.getConnectedWallet()
       if (!wallet) {
         throw new Error('No wallet connected')
       }
 
-      console.log('[AuthFlow] Creating session for wallet:', wallet.address, 'Type:', wallet.isFuel ? 'Fuel' : 'Ethereum')
+      console.log('[AuthFlow] Preparing session for wallet:', wallet.address, 'Type:', wallet.isFuel ? 'Fuel' : 'Ethereum')
 
       const normalizedAddress = wallet.address.toLowerCase()
 
@@ -605,7 +609,7 @@ class AuthFlowService {
         .map((m) => m.contract_id)
       // Include accounts_registry_id at the end if available (matching O2's pattern)
       const accountsRegistryId = marketService.getAccountsRegistryId()
-      const contractIds = accountsRegistryId 
+      const contractIds = accountsRegistryId
         ? [...marketContractIds, accountsRegistryId]
         : marketContractIds
       console.log('[AuthFlow] Contract IDs (markets + accounts_registry):', contractIds.length)
@@ -622,9 +626,59 @@ class AuthFlowService {
       }
 
       console.log('[AuthFlow] Trading account:', tradingAccount.id)
-      console.log('[AuthFlow] Starting session creation...')
+      console.log('[AuthFlow] Ready for signature - showing confirmation dialog')
+
+      // Instead of immediately creating session (which triggers wallet popup),
+      // show a confirmation dialog first so user knows what's coming
+      this.setState({
+        state: 'awaitingSignature',
+        pendingSession: { contractIds },
+        error: null,
+      })
+    } catch (error: any) {
+      console.error('[AuthFlow] ❌ Error preparing session:', error)
+      console.error('[AuthFlow] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+      this.setState({
+        state: 'error',
+        error: error.message || 'Failed to prepare session',
+      })
+    }
+  }
+
+  /**
+   * Called when user confirms they want to sign the message.
+   * This triggers the actual wallet signature popup.
+   */
+  async confirmSignature(): Promise<void> {
+    if (!this.context.pendingSession) {
+      throw new Error('No pending session to confirm')
+    }
+
+    try {
+      this.setState({ state: 'creatingSession' })
+
+      const wallet = walletService.getConnectedWallet()
+      if (!wallet) {
+        throw new Error('No wallet connected')
+      }
+
+      const normalizedAddress = wallet.address.toLowerCase()
+      const { contractIds } = this.context.pendingSession
+
+      // Use cached trading account
+      const tradingAccount = this.context.tradingAccount
+      if (!tradingAccount) {
+        throw new Error('Trading account not found')
+      }
+
+      console.log('[AuthFlow] User confirmed - starting session creation...')
 
       // Create session with cached trading account
+      // This is where the wallet signature popup will appear
       const session = await sessionService.createSession(
         normalizedAddress,
         contractIds,
@@ -633,6 +687,9 @@ class AuthFlowService {
       )
 
       console.log('[AuthFlow] ✅ Session created successfully:', session.id)
+
+      // Clear pending session
+      this.setState({ pendingSession: null })
 
       // Check if welcome modal has been dismissed for this wallet
       const welcomeStore = useWelcomeStore.getState()
@@ -667,6 +724,30 @@ class AuthFlowService {
         error: error.message || 'Failed to create session',
       })
     }
+  }
+
+  /**
+   * Called when user declines to sign the message.
+   * Keeps wallet connected but shows a retry UI.
+   */
+  declineSignature(): void {
+    console.log('[AuthFlow] User declined signature')
+    this.setState({
+      state: 'signatureDeclined',
+      error: null,
+    })
+  }
+
+  /**
+   * Called when user wants to retry signing after declining.
+   * Shows the signature dialog again.
+   */
+  retrySignature(): void {
+    console.log('[AuthFlow] User wants to retry signature')
+    this.setState({
+      state: 'awaitingSignature',
+      error: null,
+    })
   }
 
   async dismissWelcome(): Promise<void> {
@@ -706,6 +787,7 @@ class AuthFlowService {
       },
       invitationCode: null,
       sessionId: null,
+      pendingSession: null,
     })
   }
 

@@ -4,6 +4,7 @@ import { walletService } from '../services/walletService'
 import TermsOfUseDialog from './TermsOfUseDialog'
 import AccessQueueDialog from './AccessQueueDialog'
 import InvitationCodeDialog from './InvitationCodeDialog'
+import SignMessageDialog from './SignMessageDialog'
 import WelcomeModal from './WelcomeModal'
 import { useToast } from './ToastProvider'
 
@@ -116,6 +117,10 @@ export default function AuthFlowOverlay({ onAuthReady, onAuthStateChange }: Auth
     onAuthStateChange?.('dismissed', false)
   }
 
+  const handleSignMessageClose = () => {
+    // User cancelled the signature - this is handled by the dialog itself
+  }
+
   // Check if dialogs should be shown (not dismissed by user)
   const showAccessQueueDialog = authState.state === 'displayingAccessQueue' && !dismissedDialogs.has('accessQueue')
   const showInvitationDialog = authState.state === 'awaitingInvitation' && !dismissedDialogs.has('invitation')
@@ -138,6 +143,10 @@ export default function AuthFlowOverlay({ onAuthReady, onAuthStateChange }: Auth
       <InvitationCodeDialog
         isOpen={showInvitationDialog}
         onClose={handleInvitationClose}
+      />
+      <SignMessageDialog
+        isOpen={authState.state === 'awaitingSignature'}
+        onClose={handleSignMessageClose}
       />
       <WelcomeModal
         isOpen={authState.state === 'awaitingWelcome'}

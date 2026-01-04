@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { authFlowService } from '../services/authFlowService'
 import { useToast } from './ToastProvider'
 import './SignMessageDialog.css'
@@ -11,6 +11,13 @@ interface SignMessageDialogProps {
 export default function SignMessageDialog({ isOpen, onClose }: SignMessageDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { addToast } = useToast()
+
+  // Reset loading state when dialog opens (e.g., after retry)
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoading(false)
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 

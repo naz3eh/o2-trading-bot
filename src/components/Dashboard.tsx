@@ -369,6 +369,10 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
         return 'In access queue'
       case 'awaitingInvitation':
         return 'Enter invitation code'
+      case 'awaitingSignature':
+        return 'Sign message to continue'
+      case 'signatureDeclined':
+        return 'Signature required'
       case 'creatingSession':
         return 'Awaiting signature...'
       case 'awaitingWelcome':
@@ -503,6 +507,13 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
                       onClick={() => authFlowService.startFlow()}
                     >
                       Error - Click to Retry
+                    </button>
+                  ) : authState === 'signatureDeclined' ? (
+                    <button
+                      className="start-button error-retry"
+                      onClick={() => authFlowService.retrySignature()}
+                    >
+                      Sign Message to Continue
                     </button>
                   ) : !authReady ? (
                     <button className="start-button" disabled>

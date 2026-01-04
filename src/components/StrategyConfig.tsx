@@ -5,6 +5,7 @@ import { db } from '../services/dbService'
 import { orderService } from '../services/orderService'
 import { walletService } from '../services/walletService'
 import { tradingEngine } from '../services/tradingEngine'
+import { tradingSessionService } from '../services/tradingSessionService'
 import { useToast } from './ToastProvider'
 import './StrategyConfig.css'
 
@@ -323,7 +324,8 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
 
     if (editingConfig) {
       // Check if market ID has changed - if so, warn user and clear fill prices
-      if (editingConfig.config.marketId !== selectedMarket) {
+      const oldMarketId = editingConfig.config.marketId
+      if (oldMarketId !== selectedMarket) {
         // Warn user that changing market will clear trading history
         const hasHistory = editingConfig.config.averageBuyPrice ||
           editingConfig.config.averageSellPrice ||
@@ -338,6 +340,11 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
           if (!confirmed) {
             return
           }
+        }
+
+        // Stop trading for the old market if trading is active
+        if (tradingEngine.isActive()) {
+          tradingEngine.stopMarketTrading(oldMarketId)
         }
 
         // Market changed - clear fill prices and update market ID
@@ -372,6 +379,13 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
     }
 
     await db.strategyConfigs.put(configStore)
+
+    // If this is an active strategy and trading is active, ensure it's added to engine
+    // (addMarketTrading already checks if market is already being traded and returns early)
+    if (configStore.isActive && tradingEngine.isActive()) {
+      await tradingEngine.addMarketTrading(selectedMarket)
+    }
+
     await loadConfigs()
     addToast('Strategy configuration saved', 'success')
     handleCancel()
@@ -412,10 +426,15 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
       updatedAt: Date.now(),
     })
 
-    // If deactivating and trading is active, stop trading for this specific market
-    // This allows other markets to continue trading
-    if (isDeactivating && tradingEngine.isActive()) {
-      tradingEngine.stopMarketTrading(config.marketId)
+    // Update trading engine if it's active
+    if (tradingEngine.isActive()) {
+      if (isDeactivating) {
+        // Deactivating - stop trading for this specific market
+        tradingEngine.stopMarketTrading(config.marketId)
+      } else {
+        // Activating - start trading for this market
+        await tradingEngine.addMarketTrading(config.marketId)
+      }
     }
 
     await loadConfigs()
@@ -496,6 +515,20 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
 
   const handleDelete = async (config: StrategyConfigStore) => {
     if (confirm('Are you sure you want to delete this strategy configuration?')) {
+      // Stop trading for this market if trading is active
+      if (tradingEngine.isActive()) {
+        tradingEngine.stopMarketTrading(config.marketId)
+      }
+
+      // End all trading sessions for this market so they don't show in TradeConsole
+      const wallet = walletService.getConnectedWallet()
+      if (wallet) {
+        const walletAddress = typeof wallet.address === 'string'
+          ? wallet.address.toLowerCase()
+          : String(wallet.address).toLowerCase()
+        await tradingSessionService.endAllResumableSessions(walletAddress, config.marketId)
+      }
+
       await db.strategyConfigs.delete(config.id)
       await loadConfigs()
       addToast('Strategy configuration deleted', 'success')

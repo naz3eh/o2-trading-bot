@@ -53,6 +53,8 @@ interface MarketConfig {
   sessionId?: string
 }
 
+type TradingStateCallback = (isActive: boolean) => void
+
 class TradingEngine {
   private isRunning: boolean = false
   private marketConfigs: Map<string, MarketConfig> = new Map()
@@ -63,6 +65,7 @@ class TradingEngine {
   private onStatusCallbacks: StatusCallback[] = []
   private onContextCallbacks: ContextCallback[] = []
   private onMultiContextCallbacks: MultiContextCallback[] = []
+  private onTradingStateCallbacks: TradingStateCallback[] = []
   private transactionLock: boolean = false
   private lastContext: TradingContext | null = null
   private marketContexts: Map<string, TradingContext> = new Map()
@@ -131,6 +134,26 @@ class TradingEngine {
         this.onMultiContextCallbacks.splice(index, 1)
       }
     }
+  }
+
+  onTradingStateChange(callback: TradingStateCallback): () => void {
+    this.onTradingStateCallbacks.push(callback)
+    return () => {
+      const index = this.onTradingStateCallbacks.indexOf(callback)
+      if (index > -1) {
+        this.onTradingStateCallbacks.splice(index, 1)
+      }
+    }
+  }
+
+  private emitTradingStateChange(isActive: boolean): void {
+    this.onTradingStateCallbacks.forEach((callback) => {
+      try {
+        callback(isActive)
+      } catch (error) {
+        console.error('Error in trading state callback:', error)
+      }
+    })
   }
 
   getMarketContexts(): Map<string, TradingContext> {
@@ -259,10 +282,35 @@ class TradingEngine {
 
       // Set nextRunAt to now for immediate execution (better UX)
       marketConfig.nextRunAt = Date.now()
+
+      // Emit initial context immediately so TradeConsole shows all markets right away
+      const strategyName = marketConfig.config.name || 'Custom'
+      const baseSymbol = marketConfig.market.base.symbol
+      const initialContext: TradingContext = {
+        pair: marketPair,
+        baseBalance: session?.startingBaseBalance ? `${session.startingBaseBalance} ${baseSymbol}` : '-- --',
+        quoteBalance: session?.startingQuoteBalance ? `$${session.startingQuoteBalance}` : '$--',
+        lastBuyPrice: null,
+        currentPrice: null,
+        openBuyOrders: 0,
+        openSellOrders: 0,
+        pendingSellOrder: null,
+        profitProtectionEnabled: marketConfig.config.orderManagement.onlySellAboveBuyPrice,
+        nextRunIn: 0,
+        sessionId: session?.id || null,
+        totalVolume: session?.totalVolume || 0,
+        totalFees: session?.totalFees || 0,
+        realizedPnL: session?.realizedPnL || 0,
+        tradeCount: session?.tradeCount || 0,
+        startingBaseBalance: session?.startingBaseBalance ? `${session.startingBaseBalance} ${baseSymbol}` : null,
+        startingQuoteBalance: session?.startingQuoteBalance ? `$${session.startingQuoteBalance}` : null,
+        strategyName,
+      }
+      this.emitContext(initialContext)
+
       this.startMarketTrading(marketId, marketConfig)
 
       // Emit strategy start message
-      const strategyName = marketConfig.config.name || 'Custom'
       this.emitStatus(`${marketPair}: Strategy started - ${strategyName}`, 'info')
 
       // NOTE: Fill tracking is handled directly in executeTrade() (lines 347-407)
@@ -376,6 +424,9 @@ class TradingEngine {
     }
 
     this.marketConfigs.clear()
+
+    // Notify listeners that trading has stopped
+    this.emitTradingStateChange(false)
   }
 
   isActive(): boolean {
@@ -418,6 +469,120 @@ class TradingEngine {
     this.emitStatus(`${pair}: Strategy deactivated`, 'info')
 
     console.log(`[TradingEngine] Stopped trading for ${marketId}. Remaining markets: ${this.marketConfigs.size}`)
+
+    // If all markets have been removed, stop the engine entirely
+    if (this.marketConfigs.size === 0 && this.isRunning) {
+      console.log('[TradingEngine] All markets stopped, stopping engine')
+      this.stop()
+      this.emitStatus('All strategies deactivated - trading stopped', 'warning')
+    }
+  }
+
+  /**
+   * Add a new market to active trading while engine is running.
+   * Used when a new strategy is activated while trading is already active.
+   */
+  async addMarketTrading(marketId: string): Promise<void> {
+    if (!this.isRunning || !this.ownerAddress || !this.tradingAccountId) {
+      console.log('[TradingEngine] Not running, cannot add market')
+      return
+    }
+
+    // Check if already trading this market
+    if (this.marketConfigs.has(marketId)) {
+      console.log(`[TradingEngine] Already trading ${marketId}`)
+      return
+    }
+
+    // Get strategy config from DB
+    const storedConfig = await db.strategyConfigs.get(marketId)
+    if (!storedConfig || !storedConfig.isActive) {
+      console.log(`[TradingEngine] No active config for ${marketId}`)
+      return
+    }
+
+    // Get market info
+    const market = await marketService.getMarket(marketId)
+    if (!market) {
+      console.warn(`[TradingEngine] Market ${marketId} not found`)
+      return
+    }
+
+    const marketPair = `${market.base.symbol}/${market.quote.symbol}`
+    console.log(`[TradingEngine] Adding market ${marketPair} to active trading`)
+
+    // Create market config
+    const marketConfig: MarketConfig = {
+      market,
+      config: storedConfig.config,
+      nextRunAt: Date.now(),
+    }
+
+    // Fetch starting balances for new session
+    let startingBaseBalance: string | undefined
+    let startingQuoteBalance: string | undefined
+    try {
+      const balances = await balanceService.getMarketBalances(
+        market,
+        this.tradingAccountId,
+        this.ownerAddress
+      )
+      const baseBalanceHuman = new Decimal(balances.base.unlocked).div(10 ** market.base.decimals)
+      const quoteBalanceHuman = new Decimal(balances.quote.unlocked).div(10 ** market.quote.decimals)
+      startingBaseBalance = baseBalanceHuman.toFixed(6).replace(/\.?0+$/, '')
+      startingQuoteBalance = quoteBalanceHuman.toFixed(2)
+    } catch (error) {
+      console.error(`[TradingEngine] ❌ Failed to fetch starting balances for ${marketPair}:`, error)
+      this.emitStatus(`${marketPair}: Could not capture starting balance`, 'warning')
+    }
+
+    const strategyName = marketConfig.config.name || 'Custom'
+
+    // Create new session for this market
+    const session = await tradingSessionService.getOrCreateSession(
+      this.ownerAddress,
+      marketId,
+      marketPair,
+      true, // forceNew
+      startingBaseBalance,
+      startingQuoteBalance,
+      strategyName
+    )
+    marketConfig.sessionId = session.id
+    console.log(`[TradingEngine] New session: ${session.id} (starting: ${startingBaseBalance} ${market.base.symbol} + $${startingQuoteBalance})`)
+
+    // Add to market configs
+    this.marketConfigs.set(marketId, marketConfig)
+
+    // Emit initial context immediately so TradeConsole shows the new market right away
+    // (without waiting for the first trade cycle to execute)
+    const initialContext: TradingContext = {
+      pair: marketPair,
+      baseBalance: startingBaseBalance ? `${startingBaseBalance} ${market.base.symbol}` : '-- --',
+      quoteBalance: startingQuoteBalance ? `$${startingQuoteBalance}` : '$--',
+      lastBuyPrice: null,
+      currentPrice: null,
+      openBuyOrders: 0,
+      openSellOrders: 0,
+      pendingSellOrder: null,
+      profitProtectionEnabled: marketConfig.config.orderManagement.onlySellAboveBuyPrice,
+      nextRunIn: 0,
+      sessionId: session.id,
+      totalVolume: 0,
+      totalFees: 0,
+      realizedPnL: 0,
+      tradeCount: 0,
+      startingBaseBalance: startingBaseBalance ? `${startingBaseBalance} ${market.base.symbol}` : null,
+      startingQuoteBalance: startingQuoteBalance ? `$${startingQuoteBalance}` : null,
+      strategyName,
+    }
+    this.emitContext(initialContext)
+
+    // Start trading loop
+    this.startMarketTrading(marketId, marketConfig)
+
+    this.emitStatus(`${marketPair}: Strategy started - ${strategyName}`, 'info')
+    console.log(`[TradingEngine] Added ${marketPair} to active trading. Total markets: ${this.marketConfigs.size}`)
   }
 
   getSessionTradeCycles(): number {
@@ -482,6 +647,8 @@ class TradingEngine {
       }
 
       if (this.transactionLock) {
+        const pair = `${marketConfig.market.base.symbol}/${marketConfig.market.quote.symbol}`
+        console.log(`[TradingEngine] ${pair}: Transaction locked, rescheduling in 2.5s`)
         if (this.isRunning) {
           const delay = 2500
           marketConfig.nextRunAt = Date.now() + delay

@@ -71,6 +71,17 @@ export default function Dashboard({ isWalletConnected, onDisconnect }: Dashboard
     }
   }, [isWalletConnected])
 
+  // Subscribe to trading engine state changes (e.g., when all strategies are deactivated)
+  useEffect(() => {
+    const unsubscribe = tradingEngine.onTradingStateChange((isActive) => {
+      setIsTrading(isActive)
+      if (!isActive) {
+        setHasResumableSession(true)
+      }
+    })
+    return unsubscribe
+  }, [])
+
   // Set wallet address immediately when wallet connects (don't wait for auth flow)
   // This ensures users can always see their address and disconnect, even if auth flow is stuck
   useEffect(() => {

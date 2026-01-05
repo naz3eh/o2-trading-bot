@@ -23,8 +23,8 @@ const fuelConfig: FuelConfig = {
 export const fuel = new Fuel(fuelConfig)
 
 // Initialize Wagmi config for Ethereum wallets
-// Note: You'll need to set WALLETCONNECT_PROJECT_ID in environment
-const WALLETCONNECT_PROJECT_ID = ((import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID as string) || ''
+// Note: You'll need to set VITE_CONNECTORS_WC_PROJECT_ID in environment
+const CONNECTORS_WC_PROJECT_ID = ((import.meta as any).env?.VITE_CONNECTORS_WC_PROJECT_ID as string) || ''
 
 // RPC URLs - use environment variables for custom/private RPCs to avoid rate limiting
 // If not set, uses default public RPCs (which have strict rate limits)
@@ -43,10 +43,10 @@ export const wagmiConfig = createConfig({
   },
   connectors: [
     injected(),
-    ...(WALLETCONNECT_PROJECT_ID
+    ...(CONNECTORS_WC_PROJECT_ID
       ? [
           walletConnect({
-            projectId: WALLETCONNECT_PROJECT_ID,
+            projectId: CONNECTORS_WC_PROJECT_ID,
           }) as ReturnType<typeof createConnector>,
         ]
       : []),

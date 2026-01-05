@@ -11,6 +11,7 @@ import okxLogo from '../styles/walletlogos/okxw-logo.png'
 import metamaskLogo from '../styles/walletlogos/metamaskw-logo.svg'
 import phantomLogo from '../styles/walletlogos/phantomw-logo.png'
 import backpackLogo from '../styles/walletlogos/backpackw-logo.svg'
+import walletConnectLogo from '../styles/walletlogos/walletConnect.svg'
 
 // Wallet icons mapping
 const WALLET_ICONS: Record<string, string> = {
@@ -21,6 +22,7 @@ const WALLET_ICONS: Record<string, string> = {
   'metamask': metamaskLogo,
   'phantom': phantomLogo,
   'backpack': backpackLogo,
+  'walletconnect': walletConnectLogo,
 }
 
 const getWalletIcon = (walletName: string): string | undefined => {
@@ -32,6 +34,7 @@ const getWalletIcon = (walletName: string): string | undefined => {
   if (name.includes('metamask')) return WALLET_ICONS['metamask']
   if (name.includes('phantom')) return WALLET_ICONS['phantom']
   if (name.includes('backpack')) return WALLET_ICONS['backpack']
+  if (name.includes('walletconnect')) return WALLET_ICONS['walletconnect']
   return undefined
 }
 
@@ -93,14 +96,14 @@ export default function ConnectWalletDialog({ onClose }: ConnectWalletDialogProp
     // Timeout to prevent button getting stuck
     const timeout = setTimeout(() => {
       setConnecting(null)
-      addToast('Connection timed out. Please try again.', 'error')
-    }, 30000) // 30 second timeout
+        addToast('Connection timed out. Please try again.', 'error')
+    }, 50000) // 30 second timeout
 
     try {
       await walletService.connectEthereumWallet(connectorName)
       clearTimeout(timeout)
       addToast('Wallet connected successfully', 'success')
-      onClose()
+        onClose()
     } catch (error: any) {
       clearTimeout(timeout)
       addToast(`Failed to connect wallet: ${error.message}`, 'error')

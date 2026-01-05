@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10;
   padding: 16px;
 }
 
@@ -21,6 +21,30 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+/* Webkit scrollbar for Chrome, Safari, Edge */
+.connect-wallet-dialog::-webkit-scrollbar {
+  width: 6px;
+}
+
+.connect-wallet-dialog::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.connect-wallet-dialog::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+  opacity: 0.5;
+}
+
+.connect-wallet-dialog::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
 }
 
 .connect-wallet-dialog .dialog-header {

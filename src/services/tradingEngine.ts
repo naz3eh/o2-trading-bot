@@ -673,9 +673,14 @@ class TradingEngine {
           marketConfig.config = storedConfig.config
         }
 
-        // CHECK 1: Is trading paused due to max daily loss?
-        if (this.isTradingPaused(marketConfig.config)) {
-          this.emitStatus(`${pair}: Trading paused (max daily loss exceeded)`, 'warning')
+        // CHECK 1: Is trading paused due to max session loss?
+        // Get the current session to check P&L
+        const sessionForPauseCheck = marketConfig.sessionId
+          ? await tradingSessionService.getSessionById(marketConfig.sessionId)
+          : null
+        if (this.isTradingPausedDueToSessionLoss(marketConfig.config, sessionForPauseCheck)) {
+          const maxLoss = marketConfig.config.riskManagement?.maxSessionLossUsd || 0
+          this.emitStatus(`${pair}: Trading paused (session loss exceeded $${maxLoss}). End session to reset.`, 'warning')
           // Reschedule with longer delay when paused
           marketConfig.nextRunAt = Date.now() + 60000 // Check again in 1 minute
           if (this.isRunning) {
@@ -1079,27 +1084,9 @@ class TradingEngine {
                     console.error(`[TradingEngine] Error placing immediate sell order for buy fill ${orderId}:`, error)
                     // Continue with other fills even if one fails
                   }
-                } else if (fillData.order.side === OrderSide.Sell) {
-                  // Calculate and track P&L for sell fills (for daily P&L limit feature)
-                  // Note: Session P&L is now handled in recordConfirmedFill above
-                  try {
-                    const pnl = this.calculateRealizedPnL(
-                      fillData.order,
-                      marketConfig.market,
-                      updatedConfig
-                    )
-                    if (pnl !== 0) {
-                      updatedConfig = await this.updateDailyPnL(
-                        marketConfig.market.market_id,
-                        pnl,
-                        updatedConfig
-                      )
-                      marketConfig.config = updatedConfig
-                    }
-                  } catch (error) {
-                    console.error(`[TradingEngine] Error updating P&L for sell fill ${orderId}:`, error)
-                  }
                 }
+                // Note: Session P&L is tracked in recordConfirmedFill above
+                // No need for separate daily P&L tracking anymore
               }
             }
           } catch (error) {
@@ -1223,44 +1210,25 @@ class TradingEngine {
   }
 
   /**
-   * Get today's date as YYYY-MM-DD string
+   * Check if trading is paused due to max session loss
+   * Uses the session's realized P&L directly instead of daily tracking
    */
-  private getTodayDateString(): string {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  }
-
-  /**
-   * Get midnight timestamp for next day (for pause resume)
-   */
-  private getMidnightTimestamp(): number {
-    const now = new Date()
-    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0)
-    return midnight.getTime()
-  }
-
-  /**
-   * Check if trading is paused due to max daily loss
-   */
-  private isTradingPaused(config: StrategyConfig): boolean {
-    if (!config.riskManagement?.maxDailyLossEnabled) {
+  private isTradingPausedDueToSessionLoss(config: StrategyConfig, session: TradingSession | null): boolean {
+    if (!config.riskManagement?.maxSessionLossEnabled) {
       return false
     }
 
-    if (!config.dailyPnL) {
+    if (!session) {
       return false
     }
 
-    const today = this.getTodayDateString()
-
-    // Reset daily P&L if it's a new day
-    if (config.dailyPnL.date !== today) {
-      return false // New day, not paused
-    }
-
-    // Check if explicitly paused
-    if (config.dailyPnL.pausedUntil && Date.now() < config.dailyPnL.pausedUntil) {
-      console.log('[TradingEngine] Trading paused until:', new Date(config.dailyPnL.pausedUntil).toLocaleTimeString())
+    // Check session P&L against threshold
+    const maxLoss = config.riskManagement.maxSessionLossUsd
+    if (session.realizedPnL < -maxLoss) {
+      console.log('[TradingEngine] Session P&L exceeded max loss:', {
+        sessionPnL: session.realizedPnL,
+        maxLoss: -maxLoss
+      })
       return true
     }
 
@@ -1314,116 +1282,6 @@ class TradingEngine {
     }
 
     return cancelledCount
-  }
-
-  /**
-   * Calculate realized P&L from a filled sell order
-   */
-  private calculateRealizedPnL(
-    order: Order,
-    market: Market,
-    config: StrategyConfig
-  ): number {
-    // Only calculate for sell orders
-    if (order.side !== OrderSide.Sell) {
-      return 0
-    }
-
-    // Need average buy price to calculate P&L
-    if (!config.averageBuyPrice || config.averageBuyPrice === '0') {
-      return 0
-    }
-
-    // Get the fill price (use price_fill if available, otherwise use order price)
-    const fillPriceScaled = order.price_fill && order.price_fill !== '0'
-      ? new Decimal(order.price_fill)
-      : new Decimal(order.price)
-    const fillPriceHuman = fillPriceScaled.div(10 ** market.quote.decimals)
-
-    // Get the filled quantity
-    const filledQuantityScaled = new Decimal(order.filled_quantity || '0')
-    const filledQuantityHuman = filledQuantityScaled.div(10 ** market.base.decimals)
-
-    if (filledQuantityHuman.lte(0)) {
-      return 0
-    }
-
-    // Calculate gross P&L: (sellPrice - avgBuyPrice) * quantity
-    const avgBuyPrice = new Decimal(config.averageBuyPrice)
-    const grossPnL = fillPriceHuman.minus(avgBuyPrice).mul(filledQuantityHuman)
-
-    // Calculate fees: 0.01% on buy + 0.01% on sell = 0.02% total round-trip
-    const FEE_RATE = new Decimal('0.0001') // 0.01%
-    const buyValue = avgBuyPrice.mul(filledQuantityHuman)
-    const sellValue = fillPriceHuman.mul(filledQuantityHuman)
-    const buyFee = buyValue.mul(FEE_RATE)
-    const sellFee = sellValue.mul(FEE_RATE)
-    const totalFees = buyFee.plus(sellFee)
-
-    // Net P&L = Gross P&L - Fees
-    const netPnL = grossPnL.minus(totalFees)
-
-    console.log('[TradingEngine] Calculated P&L for sell order:', {
-      orderId: order.order_id,
-      fillPrice: fillPriceHuman.toString(),
-      avgBuyPrice: avgBuyPrice.toString(),
-      quantity: filledQuantityHuman.toString(),
-      grossPnL: grossPnL.toString(),
-      buyFee: buyFee.toString(),
-      sellFee: sellFee.toString(),
-      netPnL: netPnL.toString()
-    })
-
-    return netPnL.toNumber()
-  }
-
-  /**
-   * Update daily P&L tracking when a sell order fills
-   */
-  private async updateDailyPnL(
-    marketId: string,
-    pnlChange: number,
-    config: StrategyConfig
-  ): Promise<StrategyConfig> {
-    if (!config.riskManagement?.maxDailyLossEnabled) {
-      return config
-    }
-
-    const today = this.getTodayDateString()
-    const updatedConfig = { ...config }
-
-    // Initialize or reset daily P&L
-    if (!updatedConfig.dailyPnL || updatedConfig.dailyPnL.date !== today) {
-      updatedConfig.dailyPnL = {
-        date: today,
-        realizedPnL: 0,
-      }
-    }
-
-    // Update P&L
-    updatedConfig.dailyPnL.realizedPnL += pnlChange
-
-    console.log('[TradingEngine] Updated daily P&L:', {
-      date: today,
-      pnlChange,
-      totalPnL: updatedConfig.dailyPnL.realizedPnL,
-      maxLoss: config.riskManagement.maxDailyLossUsd
-    })
-
-    // Check if max daily loss is exceeded
-    if (updatedConfig.dailyPnL.realizedPnL < -config.riskManagement.maxDailyLossUsd) {
-      updatedConfig.dailyPnL.pausedUntil = this.getMidnightTimestamp()
-      console.log('[TradingEngine] MAX DAILY LOSS EXCEEDED! Trading paused until:', new Date(updatedConfig.dailyPnL.pausedUntil).toLocaleString())
-      this.emitStatus(`Max daily loss ($${config.riskManagement.maxDailyLossUsd}) exceeded! Trading paused until midnight.`, 'error')
-    }
-
-    // Persist to database
-    await db.strategyConfigs.update(marketId, {
-      config: updatedConfig,
-      updatedAt: Date.now(),
-    })
-
-    return updatedConfig
   }
 }
 

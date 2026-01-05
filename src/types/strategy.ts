@@ -65,9 +65,9 @@ export interface RiskManagementConfig {
   orderTimeoutEnabled: boolean
   orderTimeoutMinutes: number  // e.g., 30 = cancel if not filled in 30 min
 
-  // Max Daily Loss
-  maxDailyLossEnabled: boolean
-  maxDailyLossUsd: number  // e.g., 100 = pause if lost $100 today
+  // Max Session Loss - pauses trading when session P&L drops below threshold
+  maxSessionLossEnabled: boolean
+  maxSessionLossUsd: number  // e.g., 100 = pause if session P&L drops to -$100
 }
 
 // ============================================
@@ -101,13 +101,6 @@ export interface StrategyConfig {
   }
   averageBuyPrice?: string
   averageSellPrice?: string
-
-  // Daily P&L Tracking
-  dailyPnL?: {
-    date: string  // YYYY-MM-DD
-    realizedPnL: number  // USD
-    pausedUntil?: number  // Timestamp when trading can resume (midnight)
-  }
 
   // Console Settings
   consoleMode?: 'simple' | 'debug' // Console verbosity: simple (essential) or debug (all details)
@@ -164,8 +157,8 @@ export function getDefaultStrategyConfig(marketId: string): StrategyConfig {
       stopLossPercent: 5,  // Sell if price drops 5% below avg buy
       orderTimeoutEnabled: false,
       orderTimeoutMinutes: 30,  // Cancel orders not filled in 30 minutes
-      maxDailyLossEnabled: false,
-      maxDailyLossUsd: 100,  // Pause trading if lost $100 today
+      maxSessionLossEnabled: false,
+      maxSessionLossUsd: 100,  // Pause trading if session P&L drops to -$100
     },
     
     timing: {

@@ -128,7 +128,7 @@ const TOOLTIPS = {
   takeProfitPercent: "Minimum profit margin above buy price required for sell orders. 0.02% covers round-trip fees (0.01% buy + 0.01% sell).",
   stopLoss: "Emergency exit if price drops below your average buy price by this percentage. Cancels all orders and market sells entire position.",
   orderTimeout: "Cancel unfilled orders after this many minutes. Useful for limit orders that don't get filled.",
-  maxDailyLoss: "Pause trading for the day if realized losses exceed this USD amount. Resets at midnight UTC.",
+  maxSessionLoss: "Pause trading for the session if realized losses exceed this USD amount. End session to reset.",
 }
 
 // Format price mode for display
@@ -687,7 +687,6 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
         lastFillPrices: undefined,
         averageBuyPrice: undefined,
         averageSellPrice: undefined,
-        dailyPnL: undefined,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -912,8 +911,8 @@ export default function StrategyConfig({ markets, createNewRef, importRef }: Str
                           <span className={config.config.riskManagement?.orderTimeoutEnabled ? 'risk-on' : 'risk-off'}>
                             Timeout{config.config.riskManagement?.orderTimeoutEnabled ? ` ${config.config.riskManagement?.orderTimeoutMinutes}m` : ''}
                           </span>
-                          <span className={config.config.riskManagement?.maxDailyLossEnabled ? 'risk-on' : 'risk-off'}>
-                            Daily Limit{config.config.riskManagement?.maxDailyLossEnabled ? ` $${config.config.riskManagement?.maxDailyLossUsd}` : ''}
+                          <span className={config.config.riskManagement?.maxSessionLossEnabled ? 'risk-on' : 'risk-off'}>
+                            Session Limit{config.config.riskManagement?.maxSessionLossEnabled ? ` $${config.config.riskManagement?.maxSessionLossUsd}` : ''}
                           </span>
                         </div>
                       </div>
@@ -1407,23 +1406,18 @@ function StrategyConfigForm({
 
       <div className="form-row checkboxes">
         <label className="checkbox-inline">
-          <input type="checkbox" checked={config.riskManagement?.maxDailyLossEnabled ?? false} onChange={(e) => updateRiskManagement({ maxDailyLossEnabled: e.target.checked })} />
-          <span className="label-with-tooltip">Max Daily Loss <Tooltip text={TOOLTIPS.maxDailyLoss} position="left" /></span>
+          <input type="checkbox" checked={config.riskManagement?.maxSessionLossEnabled ?? false} onChange={(e) => updateRiskManagement({ maxSessionLossEnabled: e.target.checked })} />
+          <span className="label-with-tooltip">Max Session Loss <Tooltip text={TOOLTIPS.maxSessionLoss} position="left" /></span>
         </label>
-        {config.riskManagement?.maxDailyLossEnabled && (
+        {config.riskManagement?.maxSessionLossEnabled && (
           <div className="form-field compact">
             <span className="prefix">$</span>
             <NumberInput
-              value={config.riskManagement?.maxDailyLossUsd ?? 100}
-              onChange={(value) => updateRiskManagement({ maxDailyLossUsd: value })}
+              value={config.riskManagement?.maxSessionLossUsd ?? 100}
+              onChange={(value) => updateRiskManagement({ maxSessionLossUsd: value })}
               min={0}
               step={1}
             />
-          </div>
-        )}
-        {config.dailyPnL && (
-          <div className={`pnl-badge ${config.dailyPnL.realizedPnL >= 0 ? 'positive' : 'negative'}`}>
-            P&L: {config.dailyPnL.realizedPnL >= 0 ? '+' : ''}${config.dailyPnL.realizedPnL.toFixed(2)}
           </div>
         )}
       </div>

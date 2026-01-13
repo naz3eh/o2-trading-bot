@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { Plyr } from 'plyr-react'
+import 'plyr-react/plyr.css'
 import './TutorialsPanel.css'
 
 interface Tutorial {
@@ -17,14 +19,42 @@ const tutorials: Tutorial[] = [
   }
 ]
 
+const plyrOptions: Plyr.Options = {
+  controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
+  hideControls: true,
+  clickToPlay: true,
+  youtube: {
+    noCookie: true,
+    rel: 0,
+    showinfo: 0,
+    iv_load_policy: 3,
+    modestbranding: 1,
+    controls: 0,
+    disablekb: 1,
+    fs: 0,
+    playsinline: 1
+  }
+}
+
 export default function TutorialsPanel() {
   const [selectedTutorial, setSelectedTutorial] = useState<Tutorial | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPlayerReady, setIsPlayerReady] = useState(false)
 
   const handleBack = () => {
     setSelectedTutorial(null)
-    setIsPlaying(false)
+    setIsPlayerReady(false)
   }
+
+  // Delay showing the player to let Plyr initialize and hide YouTube UI
+  useEffect(() => {
+    if (selectedTutorial) {
+      setIsPlayerReady(false)
+      const timer = setTimeout(() => {
+        setIsPlayerReady(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [selectedTutorial])
 
   // Detail view when a tutorial is selected
   if (selectedTutorial) {
@@ -38,33 +68,32 @@ export default function TutorialsPanel() {
         </button>
 
         <div className="tutorial-detail">
-          <div className="tutorial-detail-video">
-            {isPlaying ? (
-              <iframe
-                className="detail-video-player"
-                src={`https://www.youtube-nocookie.com/embed/${selectedTutorial.youtubeId}?autoplay=1&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&color=white`}
-                title={selectedTutorial.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : (
-              <div className="video-cover" onClick={() => setIsPlaying(true)}>
+          <div className={`tutorial-detail-video ${isPlayerReady ? 'ready' : 'loading'}`}>
+            {!isPlayerReady && (
+              <div className="video-loading-overlay">
                 <img
                   src={`https://img.youtube.com/vi/${selectedTutorial.youtubeId}/maxresdefault.jpg`}
                   alt={selectedTutorial.title}
-                  className="video-cover-image"
+                  className="video-loading-thumbnail"
                   onError={(e) => {
                     e.currentTarget.src = `https://img.youtube.com/vi/${selectedTutorial.youtubeId}/hqdefault.jpg`
                   }}
                 />
-                <div className="video-cover-play">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                </div>
+                <div className="video-loading-spinner"></div>
               </div>
             )}
+            <Plyr
+              source={{
+                type: 'video',
+                sources: [
+                  {
+                    src: selectedTutorial.youtubeId,
+                    provider: 'youtube'
+                  }
+                ]
+              }}
+              options={plyrOptions}
+            />
           </div>
 
           <div className="tutorial-detail-content">

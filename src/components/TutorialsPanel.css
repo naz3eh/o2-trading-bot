@@ -167,57 +167,97 @@
   width: 65%;
   margin: 0 auto;
   position: relative;
-  aspect-ratio: 16 / 9;
 }
 
-.detail-video-player {
+/* Loading state - hide player until ready */
+.tutorial-detail-video.loading .plyr {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tutorial-detail-video.ready .plyr {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.tutorial-detail-video.ready .video-loading-overlay {
+  display: none;
+}
+
+/* Video loading overlay */
+.video-loading-overlay {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-/* Custom thumbnail overlay before video plays */
-.video-cover {
-  position: absolute;
-  inset: 0;
-  cursor: pointer;
-  z-index: 5;
-}
-
-.video-cover-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.video-cover-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 72px;
-  height: 72px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  border-radius: 50%;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.2s;
+  background: #000;
 }
 
-.video-cover:hover .video-cover-play {
-  background: var(--primary);
-  border-color: var(--primary);
-  transform: translate(-50%, -50%) scale(1.1);
+.video-loading-thumbnail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
 }
 
-.video-cover-play svg {
-  margin-left: 4px;
+.video-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 1;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Plyr theme overrides */
+.tutorial-detail-video .plyr {
+  --plyr-color-main: var(--primary);
+  --plyr-video-background: #000;
+  border-radius: 8px;
+}
+
+.tutorial-detail-video .plyr__poster {
+  background-size: cover;
+}
+
+/* Hide YouTube's native UI completely */
+.tutorial-detail-video .plyr__video-embed iframe {
+  top: -50%;
+  height: 200%;
+}
+
+/* Hide YouTube branding that shows through */
+.tutorial-detail-video .plyr__video-embed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, #000 0%, transparent 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tutorial-detail-video .plyr__video-embed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: linear-gradient(to top, #000 0%, transparent 100%);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .tutorial-detail-content {
